@@ -31,6 +31,7 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
 
 # typescript
@@ -39,3 +40,9 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# server cache (TTS mp3s, etc.)
+saahibi-express-server/cache/
+
+# imported Quran word audio
+saahibi-express-server/public/quran-word-audio/

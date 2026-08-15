@@ -1,0 +1,21 @@
+{
+  "name": "saahibi-express-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "compression": "^1.8.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "mongoose": "^8.9.5",
+    "openai": "^6.35.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}

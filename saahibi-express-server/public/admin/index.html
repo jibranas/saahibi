@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Saahibi Admin — Content curation</title>
+    <link rel="stylesheet" href="/admin/admin.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div>
+        <h1>Saahibi Admin</h1>
+        <p class="sub">Show all by default — uncheck to hide from the app</p>
+      </div>
+      <div class="top-actions">
+        <label class="token-field">
+          Admin token
+          <input
+            id="admin-token"
+            type="password"
+            placeholder="optional if unset on server"
+            autocomplete="off"
+          />
+        </label>
+        <button type="button" id="refresh-rules" class="btn">Refresh</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="pane rules-pane">
+        <div class="pane-head">
+          <h2>Rules</h2>
+          <input
+            id="rule-search"
+            type="search"
+            placeholder="Search title or key…"
+          />
+        </div>
+        <div id="rules-status" class="status"></div>
+        <div id="rules-list" class="rules-list"></div>
+      </section>
+
+      <section class="pane examples-pane">
+        <div class="pane-head">
+          <h2 id="examples-title">Examples</h2>
+          <div class="example-actions">
+            <button type="button" id="hide-all" class="btn btn-danger" disabled>
+              Hide all
+            </button>
+            <button type="button" id="show-all" class="btn" disabled>
+              Show all
+            </button>
+          </div>
+        </div>
+        <div id="examples-status" class="status">
+          Select a rule to load its examples.
+        </div>
+        <div id="examples-list" class="examples-list"></div>
+      </section>
+    </main>
+
+    <script src="/admin/admin.js" type="module"></script>
+  </body>
+</html>
