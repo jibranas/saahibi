@@ -90,7 +90,8 @@ request ──▶ /api/queries/* ──▶ queryCache ──▶ visibility ─�
 | `lib/contentVisibility.js` | `invalidateVisibilityCache()` also clears the query cache |
 | `models/Morphology.js` | compound index `{SurahId, AyahNo, WordNo, SegmentNo}` |
 | `models/Translation.js` | compound index `{surah, ayah, word}` |
-| `index.js` | gzip, cache mount order, boot warm-up, `/health` |
+| `app.js` | gzip, cache mount order, DB-readiness gate, `/health` |
+| `index.js` | long-running entry point: `listen` plus boot warm-up |
 
 ### App
 
@@ -272,7 +273,7 @@ Full sweep of every available rule, reporting failures and timing percentiles:
 
 ```bash
 cd saahibi-express-server && node --input-type=module -e "
-const { RULES } = await import('./cache/curriculum/rules.mjs');
+const { RULES } = await import('./lib/ruleCatalog.js');
 const eps = RULES.filter(r => r.status === 'available' && r.endpoint).map(r => r.endpoint);
 const times = []; let bad = 0;
 for (const ep of eps) {

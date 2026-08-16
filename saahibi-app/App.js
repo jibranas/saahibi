@@ -32,6 +32,7 @@ import {
   getHiddenRuleKeys,
   refreshContentVisibility,
 } from './utils/contentVisibility';
+import { initCurriculum } from './utils/curriculum';
 import {
   loadFeedbackCoachmarkSeen,
   saveFeedbackCoachmarkSeen,
@@ -130,6 +131,7 @@ function AppContent() {
   const [hiddenChapterKeys, setHiddenChapterKeys] = useState(() =>
     getHiddenChapterKeys()
   );
+  const [curriculumVersion, setCurriculumVersion] = useState(0);
   const [fontsLoaded, fontError] = useFonts({
     [FONTS.arabic]: require('./assets/fonts/UthmanicHafs_V22.ttf'),
   });
@@ -144,6 +146,19 @@ function AppContent() {
     setAudioModeAsync({ playsInSilentMode: true }).catch((e) => {
       console.warn('[audio] setAudioModeAsync failed:', e?.message || e);
     });
+  }, []);
+
+  // The lesson manifest lives on the server so content can change without an
+  // app release. Screens render from the bundled snapshot meanwhile, so this
+  // only ever needs to trigger a re-render once a newer copy is in place.
+  useEffect(() => {
+    let cancelled = false;
+    initCurriculum().then((changed) => {
+      if (!cancelled && changed) setCurriculumVersion((n) => n + 1);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Restore a saved beta profile (or keep the welcome gate).
@@ -209,12 +224,11 @@ function AppContent() {
   }, [screen, profileReady, betaProfile]);
 
   // Cached lesson payloads were filtered with whatever denylist was in force
-  // when they were fetched, so an admin change makes them stale.
-  const visibilitySignature = `${[...hiddenRuleKeys].sort().join()}|${[
-    ...hiddenChapterKeys,
-  ]
+  // when they were fetched, so an admin change makes them stale. A new
+  // curriculum can also repoint a lesson at a different endpoint.
+  const visibilitySignature = `${curriculumVersion}|${[...hiddenRuleKeys]
     .sort()
-    .join()}`;
+    .join()}|${[...hiddenChapterKeys].sort().join()}`;
   useEffect(() => {
     clearRuleExamplesCache();
   }, [visibilitySignature]);

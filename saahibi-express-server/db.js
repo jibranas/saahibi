@@ -1,6 +1,14 @@
 import mongoose from 'mongoose';
 
 /**
+ * Serverless invocations reuse a warm process, so the connection is cached on
+ * `globalThis` rather than a module local — module state can be discarded
+ * independently of the process, and reconnecting per request would exhaust
+ * the Atlas connection pool.
+ */
+const cache = (globalThis.__saahibiMongo ??= { promise: null });
+
+/**
  * Connects to MongoDB Atlas when MONGODB_URI is set.
  * If unset, the API still starts (add your URI in .env when ready).
  */
@@ -13,13 +21,26 @@ export async function connectDb() {
     return;
   }
 
-  mongoose.set('strictQuery', true);
+  if (isDbConnected()) return;
 
-  await mongoose.connect(uri, {
-    serverSelectionTimeoutMS: 10_000,
-  });
+  if (!cache.promise) {
+    mongoose.set('strictQuery', true);
 
-  console.log('[db] MongoDB connected');
+    cache.promise = mongoose
+      .connect(uri, { serverSelectionTimeoutMS: 10_000 })
+      .then((conn) => {
+        console.log('[db] MongoDB connected');
+        return conn;
+      })
+      .catch((err) => {
+        // Clear the cache so the next request retries instead of resolving
+        // against a permanently rejected promise.
+        cache.promise = null;
+        throw err;
+      });
+  }
+
+  await cache.promise;
 }
 
 export function isDbConnected() {

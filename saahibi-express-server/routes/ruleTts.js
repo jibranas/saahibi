@@ -6,16 +6,36 @@ import { fileURLToPath } from 'node:url';
 import { Router } from 'express';
 import OpenAI from 'openai';
 
-import { getRuleTtsKeys, getRuleTtsText } from '../data/rules.js';
+import { getRuleTtsKeys, getRuleTtsText } from '../lib/ruleCatalog.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const CACHE_DIR = path.resolve(__dirname, '..', 'cache', 'rule-tts');
+// Serverless deploy bundles are read-only apart from /tmp, and that space is
+// per-instance and ephemeral — a cold instance re-synthesizes rather than
+// reusing a neighbour's MP3.
+const CACHE_DIR = process.env.VERCEL
+  ? path.join('/tmp', 'saahibi-rule-tts')
+  : path.resolve(__dirname, '..', 'cache', 'rule-tts');
 const MODEL = 'gpt-4o-mini-tts';
 const VOICE = 'alloy';
 
-fs.mkdirSync(CACHE_DIR, { recursive: true });
+let cacheDirReady = false;
+
+/**
+ * Created on demand rather than at import time: a failure here must not take
+ * down the whole server, and on serverless /tmp starts empty per instance.
+ */
+function ensureCacheDir() {
+  if (cacheDirReady) return true;
+  try {
+    fs.mkdirSync(CACHE_DIR, { recursive: true });
+    cacheDirReady = true;
+  } catch (err) {
+    console.warn('[rule-tts] cache dir unavailable:', err?.message || err);
+  }
+  return cacheDirReady;
+}
 
 let openaiClient = null;
 
@@ -41,13 +61,38 @@ function contentVersion(ruleKey, text) {
   return cacheKey(ruleKey, text).slice(0, 16);
 }
 
-function sendMp3(res, filePath, hash) {
-  const stat = fs.statSync(filePath);
+function setMp3Headers(res, byteLength, hash) {
   res.setHeader('Content-Type', 'audio/mpeg');
-  res.setHeader('Content-Length', String(stat.size));
+  res.setHeader('Content-Length', String(byteLength));
   res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
   res.setHeader('ETag', `"${hash}"`);
+}
+
+function sendMp3(res, filePath, hash) {
+  const stat = fs.statSync(filePath);
+  setMp3Headers(res, stat.size, hash);
   fs.createReadStream(filePath).pipe(res);
+}
+
+function sendMp3Buffer(res, buffer, hash) {
+  setMp3Headers(res, buffer.length, hash);
+  res.end(buffer);
+}
+
+/** Cache the MP3 atomically. Returns whether the file is now on disk. */
+function writeCachedMp3(filePath, buffer) {
+  const tmpPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  try {
+    fs.writeFileSync(tmpPath, buffer);
+    fs.renameSync(tmpPath, filePath);
+    return true;
+  } catch (err) {
+    console.error('[rule-tts] Cache write failed:', err?.message || err);
+    try {
+      fs.rmSync(tmpPath, { force: true });
+    } catch {}
+    return false;
+  }
 }
 
 const router = Router();
@@ -93,9 +138,10 @@ router.get('/:ruleKey', async (req, res, next) => {
       return;
     }
 
+    const cacheable = ensureCacheDir();
     const filePath = path.join(CACHE_DIR, `${hash}.mp3`);
 
-    if (fs.existsSync(filePath)) {
+    if (cacheable && fs.existsSync(filePath)) {
       sendMp3(res, filePath, hash);
       return;
     }
@@ -123,18 +169,14 @@ router.get('/:ruleKey', async (req, res, next) => {
       return;
     }
 
-    const tmpPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
-    try {
-      fs.writeFileSync(tmpPath, buffer);
-      fs.renameSync(tmpPath, filePath);
-    } catch (err) {
-      console.error('[rule-tts] Cache write failed:', err?.message || err);
-      try {
-        fs.rmSync(tmpPath, { force: true });
-      } catch {}
+    // Serving from the buffer keeps the request working when the cache is
+    // unwritable; the caller just pays for synthesis again next time.
+    if (cacheable && writeCachedMp3(filePath, buffer)) {
+      sendMp3(res, filePath, hash);
+      return;
     }
 
-    sendMp3(res, filePath, hash);
+    sendMp3Buffer(res, buffer, hash);
   } catch (err) {
     next(err);
   }

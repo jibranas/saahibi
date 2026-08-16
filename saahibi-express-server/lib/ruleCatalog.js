@@ -1,41 +1,18 @@
 /**
- * Single source of truth: the app's rule / chapter manifests.
- * Mirrored into cache/*.mjs at startup so Node can load the app's ESM
- * syntax without requiring `"type": "module"` in saahibi-app.
+ * Single source of truth: the rule / chapter manifests. The server owns these
+ * and serves them to the app over `/api/curriculum`, so lesson content can
+ * change without an app release.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-
-const here = dirname(fileURLToPath(import.meta.url));
-const rulesPath = join(here, '../../saahibi-app/data/rules.js');
-const chaptersPath = join(here, '../../saahibi-app/data/chapters.js');
-const cacheDir = join(here, '../cache/curriculum');
-
-mkdirSync(cacheDir, { recursive: true });
-
-function writeIfChanged(path, contents) {
-  if (existsSync(path) && readFileSync(path, 'utf8') === contents) return false;
-  writeFileSync(path, contents);
-  return true;
-}
-
-const rulesSource = readFileSync(rulesPath, 'utf8');
-writeIfChanged(join(cacheDir, 'rules.mjs'), rulesSource);
-
-let chaptersSource = readFileSync(chaptersPath, 'utf8');
-chaptersSource = chaptersSource.replace(
-  /import\s*\{\s*RULES\s*,\s*getRuleByKey\s*\}\s*from\s*['"]\.\/rules(?:\.js)?['"]\s*;?/,
-  `import { RULES, getRuleByKey } from './rules.mjs';`
-);
-writeIfChanged(join(cacheDir, 'chapters.mjs'), chaptersSource);
-
-const { RULES, getRuleByKey, getRuleTtsText, getRuleTtsKeys } = await import(
-  pathToFileURL(join(cacheDir, 'rules.mjs')).href
-);
-const { CHAPTERS, getChapterForRule } = await import(
-  pathToFileURL(join(cacheDir, 'chapters.mjs')).href
-);
+import {
+  RULES,
+  getRuleByKey,
+  getRuleTtsText,
+  getRuleTtsKeys,
+} from '../data/curriculum/rules.js';
+import {
+  CHAPTERS,
+  getChapterForRule,
+} from '../data/curriculum/chapters.js';
 
 /**
  * Normalize a path+query so rule endpoints match request URLs even when
