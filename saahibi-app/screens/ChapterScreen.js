@@ -1,6 +1,11 @@
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { getChapterByKey, getLessonsForChapter, CHAPTERS } from '../data/chapters';
+import {
+  CHAPTERS,
+  getChapterByKey,
+  getCheatCardLesson,
+  getLessonsForChapter,
+} from '../data/chapters';
 import { COLORS, RADII } from '../theme';
 import CurriculumTitle from '../components/CurriculumTitle';
 
@@ -27,11 +32,14 @@ function LessonRow({ lesson, lessonNumber, onPress }) {
 export default function ChapterScreen({
   chapterKey,
   onOpenLesson,
+  onOpenCheatCard,
   header,
   hiddenRuleKeys,
 }) {
   const chapter = getChapterByKey(chapterKey);
   const lessons = getLessonsForChapter(chapterKey, hiddenRuleKeys);
+  const cheatCardLesson = getCheatCardLesson(chapterKey);
+  const rows = cheatCardLesson ? [...lessons, cheatCardLesson] : lessons;
   const chapterIndex = CHAPTERS.findIndex((c) => c.key === chapterKey);
 
   if (!chapter) {
@@ -49,7 +57,7 @@ export default function ChapterScreen({
     <View style={styles.body}>
       {header}
       <FlatList
-        data={lessons}
+        data={rows}
         keyExtractor={(item) => item.key}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
@@ -67,7 +75,9 @@ export default function ChapterScreen({
           <LessonRow
             lesson={item}
             lessonNumber={`${chapterIndex + 1}.${index + 1}`}
-            onPress={() => onOpenLesson(item.key)}
+            onPress={() =>
+              item.cheatCard ? onOpenCheatCard(item) : onOpenLesson(item.key)
+            }
           />
         )}
       />

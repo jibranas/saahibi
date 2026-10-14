@@ -32,8 +32,8 @@ export const CHAPTERS = [
   {
     key: 'feminine-nouns',
     simpleTitle: 'Masculine and Feminine',
-    titleArabic: 'المُذَكَّر وَالمُؤَنَّث',
-    title: 'The Masculine and the Feminine',
+    titleArabic: 'الجِنْس — المُذَكَّر وَالمُؤَنَّث',
+    title: "Jins — The Masculine and the Feminine",
     description:
       'Spot feminine nouns by their endings — ta marbuta, stretched alif, shortened alif — and by meaning when no marker is there.',
     lessonKeys: [

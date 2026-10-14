@@ -7,7 +7,11 @@ import {
   View,
 } from 'react-native';
 
-import { CHAPTERS, getLessonsForChapter } from '../data/chapters';
+import {
+  CHAPTERS,
+  getCheatCardLesson,
+  getLessonsForChapter,
+} from '../data/chapters';
 import { COLORS, RADII } from '../theme';
 import CurriculumTitle from '../components/CurriculumTitle';
 
@@ -61,7 +65,10 @@ export default function HomeScreen({
           <ChapterCard
             chapter={item}
             index={index}
-            lessonCount={getLessonsForChapter(item.key, hiddenRuleKeys).length}
+            lessonCount={
+              getLessonsForChapter(item.key, hiddenRuleKeys).length +
+              (getCheatCardLesson(item.key) ? 1 : 0)
+            }
             onPress={() => onNavigate(`chapter:${item.key}`)}
           />
         )}

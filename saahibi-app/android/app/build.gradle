@@ -180,3 +180,9 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+// EAS Build writes this file and a credentials.json, then signs release with
+// the upload keystore. Skip locally so `expo run:android` still works.
+if (file("./eas-build.gradle").exists()) {
+    apply from: "./eas-build.gradle"
+}

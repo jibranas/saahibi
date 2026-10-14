@@ -2,10 +2,6 @@ import { Router } from 'express';
 
 import { isDbConnected } from '../db.js';
 import {
-  ayahTranslationKey,
-  fetchAyahTranslations,
-} from '../lib/ayahTranslations.js';
-import {
   ensureParticleIndex,
   findParticleOccurrences,
 } from '../lib/particles.js';
@@ -15,6 +11,7 @@ import {
   findOccurrences,
   getAyahWords,
 } from '../lib/quranCorpus.js';
+import { fetchTranslationsForWords, wordKey } from '../lib/translations.js';
 
 const router = Router();
 
@@ -86,6 +83,40 @@ function clampInt(value, fallback, min, max) {
   return Math.min(Math.max(Math.trunc(n), min), max);
 }
 
+function englishGloss(value) {
+  if (!value) return null;
+  if (typeof value === 'string') return value;
+  if (typeof value !== 'object' || Array.isArray(value)) return null;
+  if (value.en) return value.en;
+  const first = Object.values(value).find((v) => v != null && v !== '');
+  return first ?? null;
+}
+
+/** Attach the word-by-word English gloss to every word in these rows. */
+async function withWordGlosses(rows) {
+  const refs = [];
+  for (const row of rows) {
+    for (const word of row.words) {
+      refs.push({
+        surahId: row.surahId,
+        ayahNo: row.ayahNo,
+        wordNo: word.wordNo,
+      });
+    }
+  }
+  const glosses = await fetchTranslationsForWords(refs);
+  return rows.map((row) => ({
+    ...row,
+    words: row.words.map((word) => ({
+      ...word,
+      translation:
+        englishGloss(
+          glosses.get(wordKey(row.surahId, row.ayahNo, word.wordNo))
+        ) ?? null,
+    })),
+  }));
+}
+
 function buildOccurrenceRows(pageRefs) {
   return pageRefs.map(({ surahId, ayahNo, wordNo }) => ({
     surahId,
@@ -109,6 +140,9 @@ function buildOccurrenceRows(pageRefs) {
  * Default word phrases match on letters only. `exact:` keeps tanween / short
  * vowels. Particle keys match morphology segments (including attached
  * prefixes) and highlight the host word in each ayah.
+ *
+ * Each word carries its word-by-word English gloss so the client can
+ * underline the matched word. There is no verse-level translation here.
  */
 router.get('/', async (req, res, next) => {
   try {
@@ -141,12 +175,7 @@ router.get('/', async (req, res, next) => {
         return;
       }
 
-      const translations = await fetchAyahTranslations(pageRefs);
-      const occurrences = buildOccurrenceRows(pageRefs).map((row) => ({
-        ...row,
-        translation:
-          translations.get(ayahTranslationKey(row.surahId, row.ayahNo)) ?? null,
-      }));
+      const occurrences = await withWordGlosses(buildOccurrenceRows(pageRefs));
 
       res.json({
         phrase: entry.text,
@@ -187,23 +216,22 @@ router.get('/', async (req, res, next) => {
       nominalCase,
     });
 
-    const translations = await fetchAyahTranslations(pageRefs);
-
-    const occurrences = pageRefs.map(({ surahId, ayahNo, wordNo }) => {
-      const matchedWordNos = new Set(phrase.offsets.map((d) => wordNo + d));
-      return {
-        surahId,
-        ayahNo,
-        startWordNo: wordNo,
-        endWordNo: wordNo + phrase.offsets[phrase.offsets.length - 1],
-        words: getAyahWords(surahId, ayahNo).map((w) => ({
-          wordNo: w.wordNo,
-          text: w.text,
-          matched: matchedWordNos.has(w.wordNo),
-        })),
-        translation: translations.get(ayahTranslationKey(surahId, ayahNo)) ?? null,
-      };
-    });
+    const occurrences = await withWordGlosses(
+      pageRefs.map(({ surahId, ayahNo, wordNo }) => {
+        const matchedWordNos = new Set(phrase.offsets.map((d) => wordNo + d));
+        return {
+          surahId,
+          ayahNo,
+          startWordNo: wordNo,
+          endWordNo: wordNo + phrase.offsets[phrase.offsets.length - 1],
+          words: getAyahWords(surahId, ayahNo).map((w) => ({
+            wordNo: w.wordNo,
+            text: w.text,
+            matched: matchedWordNos.has(w.wordNo),
+          })),
+        };
+      })
+    );
 
     res.json({
       phrase: phrase.exact,

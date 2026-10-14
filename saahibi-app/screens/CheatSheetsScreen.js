@@ -1,7 +1,6 @@
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import CheatSheetPaper from '../components/CheatSheetPaper';
-import { CHEAT_SHEETS } from '../data/cheatSheets';
 import { COLORS } from '../theme';
 
 function SheetThumbnail({ sheet, onPress }) {
@@ -27,7 +26,7 @@ function SheetThumbnail({ sheet, onPress }) {
   );
 }
 
-export default function CheatSheetsScreen({ onBack, onOpenSheet }) {
+export default function CheatSheetsScreen({ sheets = [], onBack, onOpenSheet }) {
   return (
     <View style={styles.root}>
       <View style={styles.header}>
@@ -54,7 +53,7 @@ export default function CheatSheetsScreen({ onBack, onOpenSheet }) {
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
       >
-        {CHEAT_SHEETS.map((sheet) => (
+        {sheets.map((sheet) => (
           <SheetThumbnail
             key={sheet.key}
             sheet={sheet}

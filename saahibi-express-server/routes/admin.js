@@ -15,6 +15,7 @@ import {
   getRuleEndpoint,
   RULES,
 } from '../lib/ruleCatalog.js';
+import { listFeedbackNotes } from '../lib/posthogFeedback.js';
 import { ensureCorpus, getWordText } from '../lib/quranCorpus.js';
 import { isDbConnected } from '../db.js';
 
@@ -112,6 +113,17 @@ function summarizeCard(example, pattern) {
     translations: example?.translations ?? null,
   };
 }
+
+router.get('/feedback', async (_req, res) => {
+  try {
+    const result = await listFeedbackNotes();
+    res.json(result);
+  } catch (err) {
+    res.status(err.status || 502).json({
+      error: err.message || 'Could not load feedback',
+    });
+  }
+});
 
 router.get('/rules', async (_req, res, next) => {
   try {

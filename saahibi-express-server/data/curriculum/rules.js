@@ -37,7 +37,7 @@ export const RULES = [
     titleArabic: "أَنْوَاعُ الكَلِمَة",
     title: 'The Building Blocks of Quranic Arabic: Ism, Fi\'l, and Ḥarf',
     rule:
-      'Every word in the Arabic language is one of three types: a noun (ism), a verb (fi\'l), or a particle (ḥarf). A noun names something, a verb shows an action or state, and a particle connects words. We will study each in more detail, but for now just look at the cards and notice which words are nouns, which are verbs, and which are particles.',
+      'Every word in the Arabic language is one of three types: a noun (ism), a verb (fi\'l), or a particle (ḥarf). A noun names something, a verb shows an action or state, and a particle connects words. We will study how to recognize nouns, verbs, and particles in more detail, but for now just look at the cards and notice which words are nouns, which are verbs, and which are particles.',
     endpoint: '/api/queries/ayahs-with-vpn',
     screenType: 'examples',
     status: 'available',
@@ -62,7 +62,7 @@ export const RULES = [
     titleArabic: "الاِسْم",
     title: 'Single-Word Nouns (Ism)',
     rule:
-      'A noun in the arabic language could be the name of a person, a place, a thing. Adjectives are also considered nouns in the arabic language. Pronouns (he, she, it) are also considered nouns in the arabic language. We will study each in more detail, but for now just look at the cards and notice the different types of nouns.',
+      'A noun in the arabic language could be the name of a person, a place, a thing. Adjectives are also considered nouns in the arabic language. Pronouns (he, she, it) are also considered nouns in the arabic language. We will study how to recognize nouns in more detail, but for now just look at the cards and notice the different types of nouns.',
     endpoint: '/api/queries/single-word-ism',
     screenType: 'examples',
     status: 'available',
@@ -86,7 +86,7 @@ export const RULES = [
     titleArabic: "الفِعْل",
     title: 'Single-Word Verbs (Fi\'l)',
     rule:
-      'A verb in the Arabic language can express an action in a particular tense (past, present, future). Verbs can show actions like \'he wrote\' or \'they believe\', or states like \'he became\'. We will study the different types of verbs in more detail, but for now just look at the cards and notice the different types of verbs.',
+      'A verb in the Arabic language can express an action in a particular tense (past, present, future). Verbs can show actions like \'he wrote\' or \'they believe\', or states like \'he became\'. We will study how to recognize verbs in more detail, but for now just look at the cards and notice the different types of verbs.',
     endpoint: '/api/queries/single-word-fil',
     screenType: 'examples',
     status: 'available',
@@ -111,7 +111,7 @@ export const RULES = [
     titleArabic: "الحَرْف",
     title: 'Single-Word Particles (Ḥarf)',
     rule:
-      'A particle in the Arabic language connects words without naming something or showing an action. Particles can join phrases, show relationships, or add meaning like "and", "to", or "in". Some particles stand alone as their own word; others attach to the next word — like بِ in بِسْمِ. We will study the different types of particles in more detail, but for now just look at the cards and notice the different types of particles.',
+      'A particle in the Arabic language connects words without naming something or showing an action. Particles can join phrases, show relationships, or add meaning like "and", "to", or "in". Some particles stand alone as their own word; others attach to the next word — like بِ in بِسْمِ. We will study how to recognize particles in more detail, but for now just look at the cards and notice the different types of particles.',
     endpoint: '/api/queries/single-word-harf',
     screenType: 'examples',
     status: 'available',
@@ -250,7 +250,7 @@ export const RULES = [
     titleArabic: "التَّاءُ المَرْبُوطَة",
     title: 'Feminine Nouns (التاء المربوطة)',
     rule:
-      'Every noun in the Arabic language is either masculine or feminine. Masculine nouns are used for males and for things treated as masculine; feminine nouns are used for females and for things treated as feminine. How can we tell them apart? The trick is to spot the feminine ones by looking for a few quick patterns. If a noun does not show one of those patterns, we can usually assume it is masculine. This trick works most of the time — but like any shortcut, it can have exceptions. In this lesson we begin with the most common feminine pattern: a round ة at the end of the word — the ta marbuta. About 85% of feminine ism end this way. As the cards appear, notice which nouns carry this marker.',
+      'Every noun in the Arabic language is either masculine or feminine. Masculine nouns are used for males and for things treated as masculine; feminine nouns are used for females and for things treated as feminine. How can we tell them apart? The trick is to spot the feminine ones by looking for a few quick patterns. If a noun does not show one of those patterns, we can usually assume it is masculine. This trick works most of the time — but like any shortcut, it can have exceptions. In this lesson we begin with the most common feminine pattern: a round ة at the end of the word — the ta marbuta. About 85% of feminine ism end this way. As the cards appear, notice which nouns carry this marker, and keep a watch for how the word looks in each i\'rab state.',
     endpoint: '/api/queries/feminine-nouns',
     screenType: 'examples',
     status: 'available',
@@ -273,7 +273,7 @@ export const RULES = [
     titleArabic: "إِعْرَابُ المُؤَنَّث",
     title: 'Feminine Nouns Case Endings (إعراب المؤنث)',
     rule:
-      'Feminine nouns with ta marbuta still take the standard case endings: ةُ when the subject, ةَ otherwise, ةِ after a preposition.',
+      'You now know the first sign: a round ة at the end, the ta marbuta. That letter still takes i\'rab. The noun ends in ةُ when it is the subject, ةَ otherwise, and ةِ after a preposition. The ة stays; the vowel on it shows the state. As the cards appear, keep a watch for how the word looks in each i\'rab state.',
     endpoint: '/api/queries/feminine-irab',
     screenType: 'examples',
     status: 'available',
@@ -296,7 +296,7 @@ export const RULES = [
     titleArabic: "الأَلِفُ المَمْدُودَة",
     title: 'Feminine Color Adjectives (Alif Mamdoodah)',
     rule:
-      'Feminine color words end with ـَآءُ — the stretched alif shape that identifies them as feminine adjectives.',
+      'After the ta marbuta, the next pattern to learn is the stretched alif. Feminine color words end with ـَآءُ, and that shape is what marks them as feminine adjectives. As the cards appear, notice the ـَآءُ, and keep a watch for how the word looks in each i\'rab state.',
     endpoint: '/api/queries/fatha-hamza-damma',
     screenType: 'examples',
     status: 'available',
@@ -316,25 +316,25 @@ export const RULES = [
   {
     key: 'fatha-hamza-indef',
     simpleTitle: "Stretched Alif",
-    titleArabic: "الأَلِفُ المَمْدُودَة — نَكِرَة",
-    title: 'Feminine Nouns Ending with Alif Mamdoodah (ـاء) — Indefinite',
+    titleArabic: "الأَلِفُ المَمْدُودَة",
+    title: 'Feminine Nouns Ending with Alif Mamdoodah (ـاء)',
     rule:
-      'Feminine nouns that end with ـاء (alif mamdoodah) show the stretched alif + hamza shape. In this lesson they appear indefinite (nakira) — without ال.',
+      'After the ta marbuta, the next pattern to learn is the stretched alif. Some feminine nouns end with ـاء, the alif mamdoodah, and that ending is the sign. As the cards appear, notice the ـاء, and keep a watch for how the word looks in each i\'rab state.',
     endpoint: '/api/queries/fatha-hamza-indef',
     screenType: 'examples',
     status: 'available',
     intro: {
-      arabic: 'لَا يَتَّخِذِ ٱلْمُؤْمِنُونَ ٱلْكَٰفِرِينَ أَوْلِيَآءَ مِن دُونِ ٱلْمُؤْمِنِينَ',
+      arabic: 'يَٰمَرْيَمُ إِنَّ ٱللَّهَ ٱصْطَفَىٰكِ وَطَهَّرَكِ وَٱصْطَفَىٰكِ عَلَىٰ نِسَآءِ ٱلْعَٰلَمِينَ',
       reference: {
         surahId: 3,
-        ayahNo: 28,
+        ayahNo: 42,
       },
       translation:
-        'Let not the believers take the disbelievers as allies instead of the believers.',
-      highlight: 'أَوْلِيَآءَ',
-      patternPart: 'اءَ',
+        'O Mary, indeed Allah has chosen you and purified you and chosen you above the women of the worlds.',
+      highlight: 'نِسَآءِ',
+      patternPart: 'آءِ',
       context:
-        'أَوْلِيَآءَ — allies. No ال on this word, and the ـاء ending marks the feminine form of this plural. The warning is sharp: do not choose protectors apart from the believers. Spot that stretched alif whenever it closes an indefinite feminine noun.',
+        'نِسَآءِ — women. The ـاء at the end is the stretched alif, and it is the sign that this noun is feminine. Mary was chosen above the women of the worlds. Spot that ending whenever it closes a feminine noun.',
     },
   },
   {
@@ -343,7 +343,7 @@ export const RULES = [
     titleArabic: "الأَلِفُ المَقْصُورَة",
     title: 'Feminine Nouns Ending with Fatha + Yaa (ـَى)',
     rule:
-      'Feminine nouns that end with the fatha + yaa shape (ـَى) have no tanween and no ta marbuta — the shape itself signals femininity.',
+      'One more ending belongs on the list. Some feminine nouns end with a fatha followed by yaa, ـَى — the shortened alif. You will not see tanween here, and you will not see a ta marbuta. The ـَى itself is the sign. As the cards appear, notice that shape, and keep a watch for how the word looks in each i\'rab state.',
     endpoint: '/api/queries/fatha-yaa-feminines',
     screenType: 'examples',
     status: 'available',
@@ -366,7 +366,7 @@ export const RULES = [
     titleArabic: "المُؤَنَّثُ المَعْنَوِيّ",
     title: 'Feminine by Meaning (No Marker)',
     rule:
-      'Some feminine ism have no ة, no ـاء, and no ـى at the end. They are feminine by meaning or by established usage: names of fire; names of wines and drinks; body parts that come in pairs (eyes, hands, ears, feet); and a set of common words such as سماء، نفس، أرض، شمس، ريح، and دار. Spot them as feminine even when no marker is there.',
+      'The opening lesson said this shortcut has exceptions. Some feminine nouns carry none of the endings you have been spotting — no ة, no ـاء, and no ـى. They are feminine by meaning or by established usage: names of fire; names of wines and drinks; body parts that come in pairs, such as the eyes, the hands, the ears, and the feet; and a set of common words such as سماء، نفس، أرض، شمس، ريح، and دار. When no pattern is there, check this group before you assume the noun is masculine. As the cards appear, notice which category each word belongs to, and keep a watch for how the word looks in each i\'rab state.',
     endpoint: '/api/queries/feminine-by-meaning',
     screenType: 'examples',
     status: 'available',

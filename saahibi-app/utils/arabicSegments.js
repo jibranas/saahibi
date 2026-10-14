@@ -213,13 +213,13 @@ export function splitByPatternPart(text, part) {
 }
 
 /**
- * Pull the preceding base letter into any run made up purely of combining
- * marks, so a background fill behind it has something to cover.
+ * Pull the preceding base letter into a pattern run that opens with a
+ * combining mark, so the mark stays on that letter.
  *
- * A bare tanween (ٌ) carries no advance width of its own. iOS paints the
- * background across the whole glyph cluster anyway, but Android measures the
- * run at zero width and the highlight never appears. Widening the run to the
- * letter the mark sits on matches what iOS ends up showing.
+ * A bare tanween (ٌ) has no letter of its own. Tanween plus alif (ًا), as in
+ * شَهِيدًا, is the same situation: the fathatan belongs to the dal, and the
+ * alif only follows it. Left in their own run, the fathatan sticks to the
+ * alif and paints a second, shifted tanween over the word.
  *
  * `runs` is `[{ text, ... }]`; `flagKey` names the boolean marking the run to
  * widen. Runs left empty by the move are dropped.
@@ -232,7 +232,7 @@ export function widenMarkOnlyRuns(runs, flagKey = 'isPattern') {
   for (let i = 1; i < widened.length; i++) {
     const run = widened[i];
     if (!run[flagKey] || !run.text) continue;
-    if (![...run.text].every((char) => DIACRITIC_RE.test(char))) continue;
+    if (!DIACRITIC_RE.test([...run.text][0])) continue;
 
     const prevChars = [...widened[i - 1].text];
     let base = prevChars.length - 1;

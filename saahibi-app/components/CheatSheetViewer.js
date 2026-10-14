@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
   Modal,
+  PanResponder,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,12 +13,30 @@ import {
 } from 'react-native';
 
 import { COLORS, RADII } from '../theme';
+import { useEdgeBackPanResponder } from '../utils/edgeBackSwipe';
 import CheatSheetPaper from './CheatSheetPaper';
 
 const REST_TILT = '-2.5deg';
 const WAD_TILT = '24deg';
 const OPEN_SPRING = { friction: 7, tension: 58, useNativeDriver: true };
 const CLOSE_DURATION = 280;
+const MIN_SCALE = 1;
+const MAX_SCALE = 4;
+const NATIVE_PINCH_ZOOM = Platform.OS === 'ios';
+
+function touchDistance(touches) {
+  if (!touches || touches.length < 2) return 0;
+  const dx = touches[0].pageX - touches[1].pageX;
+  const dy = touches[0].pageY - touches[1].pageY;
+  return Math.hypot(dx, dy);
+}
+
+function touchMidpoint(touches) {
+  return {
+    x: (touches[0].pageX + touches[1].pageX) / 2,
+    y: (touches[0].pageY + touches[1].pageY) / 2,
+  };
+}
 
 function CrumpleOverlay({ opacity }) {
   return (
@@ -38,22 +58,145 @@ function CrumpleOverlay({ opacity }) {
 /**
  * Full-screen overlay: a paper wad springs open into a slightly tilted sheet.
  */
-export default function CheatSheetViewer({ sheet, visible, onClose }) {
+export default function CheatSheetViewer({ sheet, visible, onClose, children }) {
   const progress = useRef(new Animated.Value(0)).current;
+  const pinchScale = useRef(new Animated.Value(1)).current;
+  const pinchTx = useRef(new Animated.Value(0)).current;
+  const pinchTy = useRef(new Animated.Value(0)).current;
   const mountedRef = useRef(false);
   const [mounted, setMounted] = useState(false);
   const [displayed, setDisplayed] = useState(null);
+  const [zoomed, setZoomed] = useState(false);
+
+  const pinch = useRef({
+    scale: 1,
+    tx: 0,
+    ty: 0,
+    startDist: 0,
+    startScale: 1,
+    startTx: 0,
+    startTy: 0,
+    startMidX: 0,
+    startMidY: 0,
+  }).current;
+
+  const resetPinch = () => {
+    pinch.scale = 1;
+    pinch.tx = 0;
+    pinch.ty = 0;
+    pinchScale.setValue(1);
+    pinchTx.setValue(0);
+    pinchTy.setValue(0);
+    setZoomed(false);
+  };
+
+  const edgeBackHandlers = useEdgeBackPanResponder(onClose);
+
+  const pinchResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: (e) =>
+          e.nativeEvent.touches.length >= 2 || pinch.scale > 1.02,
+        onMoveShouldSetPanResponder: (e, g) =>
+          e.nativeEvent.touches.length >= 2 ||
+          (pinch.scale > 1.02 && (Math.abs(g.dx) > 4 || Math.abs(g.dy) > 4)),
+        onStartShouldSetPanResponderCapture: (e) =>
+          e.nativeEvent.touches.length >= 2,
+        onMoveShouldSetPanResponderCapture: (e) =>
+          e.nativeEvent.touches.length >= 2,
+        onPanResponderTerminationRequest: () => pinch.scale <= 1.02,
+        onPanResponderGrant: (e) => {
+          const touches = e.nativeEvent.touches;
+          pinch.startScale = pinch.scale;
+          pinch.startTx = pinch.tx;
+          pinch.startTy = pinch.ty;
+          if (touches.length >= 2) {
+            pinch.startDist = touchDistance(touches) || 1;
+            const mid = touchMidpoint(touches);
+            pinch.startMidX = mid.x;
+            pinch.startMidY = mid.y;
+            setZoomed(true);
+          }
+        },
+        onPanResponderMove: (e, g) => {
+          const touches = e.nativeEvent.touches;
+          if (touches.length >= 2) {
+            const dist = touchDistance(touches);
+            if (!pinch.startDist) {
+              pinch.startDist = dist || 1;
+              pinch.startScale = pinch.scale;
+              const mid = touchMidpoint(touches);
+              pinch.startMidX = mid.x;
+              pinch.startMidY = mid.y;
+            }
+            const nextScale = Math.min(
+              MAX_SCALE,
+              Math.max(MIN_SCALE * 0.85, pinch.startScale * (dist / pinch.startDist))
+            );
+            const mid = touchMidpoint(touches);
+            pinch.scale = nextScale;
+            pinch.tx = pinch.startTx + (mid.x - pinch.startMidX);
+            pinch.ty = pinch.startTy + (mid.y - pinch.startMidY);
+            pinchScale.setValue(nextScale);
+            pinchTx.setValue(pinch.tx);
+            pinchTy.setValue(pinch.ty);
+          } else if (pinch.scale > 1.02) {
+            pinch.tx = pinch.startTx + g.dx;
+            pinch.ty = pinch.startTy + g.dy;
+            pinchTx.setValue(pinch.tx);
+            pinchTy.setValue(pinch.ty);
+          }
+        },
+        onPanResponderRelease: () => {
+          pinch.startDist = 0;
+          if (pinch.scale <= 1.02) {
+            pinch.scale = 1;
+            pinch.tx = 0;
+            pinch.ty = 0;
+            Animated.parallel([
+              Animated.spring(pinchScale, {
+                toValue: 1,
+                useNativeDriver: true,
+                friction: 7,
+                tension: 80,
+              }),
+              Animated.spring(pinchTx, {
+                toValue: 0,
+                useNativeDriver: true,
+                friction: 7,
+                tension: 80,
+              }),
+              Animated.spring(pinchTy, {
+                toValue: 0,
+                useNativeDriver: true,
+                friction: 7,
+                tension: 80,
+              }),
+            ]).start();
+            setZoomed(false);
+          } else {
+            setZoomed(true);
+          }
+        },
+        onPanResponderTerminate: () => {
+          pinch.startDist = 0;
+        },
+      }),
+    [pinch, pinchScale, pinchTx, pinchTy]
+  );
 
   useEffect(() => {
     if (visible && sheet) {
       mountedRef.current = true;
       setDisplayed(sheet);
       setMounted(true);
+      resetPinch();
       progress.setValue(0);
       Animated.spring(progress, { toValue: 1, ...OPEN_SPRING }).start();
       return undefined;
     }
     if (!mountedRef.current) return undefined;
+    resetPinch();
     const anim = Animated.timing(progress, {
       toValue: 0,
       duration: CLOSE_DURATION,
@@ -93,6 +236,7 @@ export default function CheatSheetViewer({ sheet, visible, onClose }) {
     inputRange: [0, 1],
     outputRange: [0, 0.52],
   });
+  const composedScale = Animated.multiply(scale, pinchScale);
 
   return (
     <Modal
@@ -102,7 +246,7 @@ export default function CheatSheetViewer({ sheet, visible, onClose }) {
       onRequestClose={onClose}
       statusBarTranslucent
     >
-      <View style={styles.root}>
+      <View style={styles.root} {...(edgeBackHandlers ?? {})}>
         <Animated.View
           style={[styles.backdrop, { opacity: backdropOpacity }]}
         >
@@ -110,19 +254,32 @@ export default function CheatSheetViewer({ sheet, visible, onClose }) {
         </Animated.View>
 
         <Animated.View
+          {...(NATIVE_PINCH_ZOOM ? {} : pinchResponder.panHandlers)}
           style={[
             styles.paperWrap,
             {
               width: paperWidth,
               maxHeight: paperMaxHeight,
-              transform: [{ scale }, { scaleY }, { rotate }],
+              transform: [
+                { scale: composedScale },
+                { scaleY },
+                { rotate },
+                { translateX: pinchTx },
+                { translateY: pinchTy },
+              ],
             },
           ]}
         >
           <View style={styles.shadow}>
             <ScrollView
+              key={displayed.key}
               bounces={false}
+              scrollEnabled={NATIVE_PINCH_ZOOM || !zoomed}
+              minimumZoomScale={1}
+              maximumZoomScale={NATIVE_PINCH_ZOOM ? MAX_SCALE : 1}
+              pinchGestureEnabled={NATIVE_PINCH_ZOOM}
               showsVerticalScrollIndicator={false}
+              showsHorizontalScrollIndicator={false}
               style={styles.scroll}
               contentContainerStyle={styles.scrollContent}
             >
@@ -145,6 +302,7 @@ export default function CheatSheetViewer({ sheet, visible, onClose }) {
             <Text style={styles.closeText}>Close</Text>
           </Pressable>
         </Animated.View>
+        {children}
       </View>
     </Modal>
   );
@@ -164,6 +322,7 @@ const styles = StyleSheet.create({
   },
   paperWrap: {
     maxHeight: '86%',
+    overflow: 'visible',
   },
   shadow: {
     borderRadius: RADII.sm,

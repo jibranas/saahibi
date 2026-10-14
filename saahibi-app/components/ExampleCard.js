@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 
 import { getChapterForRule } from '../data/chapters';
-import { COLORS, FONTS, RADII } from '../theme';
+import { CLOUD_PALETTE, COLORS, FONTS, RADII } from '../theme';
 import { fetchRootMeaning } from '../utils/rootMeaning';
 import { fetchWordGrammar, wordGrammarKey } from '../utils/wordGrammar';
 import { grammarChips, roleFromPartOfSpeech } from '../utils/grammar';
@@ -59,11 +59,20 @@ function SpeakerButton({ onPress }) {
   );
 }
 
-function WordGrammarBlock({ word, isOnly, chapterKey, onSubtleCard = false }) {
+function WordGrammarBlock({
+  word,
+  isOnly,
+  chapterKey,
+  ruleKey,
+  onSubtleCard = false,
+}) {
   const [expanded, setExpanded] = useState(isOnly);
   const grammar = word.grammar;
   const role =
-    word.role ?? (grammar ? roleFromPartOfSpeech(grammar.partOfSpeech) : null);
+    word.role ??
+    (grammar
+      ? roleFromPartOfSpeech(grammar.partOfSpeech, { ruleKey })
+      : null);
   const hasChips = grammarChips(grammar, { chapterKey }).length > 0;
 
   // A single noun renders its chips inline without the collapsible shell.
@@ -115,30 +124,78 @@ function WordGrammarBlock({ word, isOnly, chapterKey, onSubtleCard = false }) {
   );
 }
 
-/** Split an array into `n` roughly equal column arrays (column-first order). */
-function splitIntoColumns(items, n) {
-  const rowsPerCol = Math.ceil(items.length / n);
-  const cols = [];
-  for (let c = 0; c < n; c++) {
-    cols.push(items.slice(c * rowsPerCol, (c + 1) * rowsPerCol));
-  }
-  return cols;
+const CLOUD_MIN_SIZE = 13;
+const CLOUD_MAX_SIZE = 28;
+
+/** Same gloss always gets the same color, wherever it appears. */
+function cloudColor(text) {
+  let hash = 0;
+  for (const ch of text) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  return CLOUD_PALETTE[hash % CLOUD_PALETTE.length];
 }
 
-function MeaningsColumns({ meanings }) {
-  const colCount = meanings.length <= 6 ? 1 : meanings.length <= 14 ? 2 : 3;
-  const columns = splitIntoColumns(meanings, colCount);
+/** 0 for the rarest gloss, 1 for the most common; square root keeps small ones readable. */
+function cloudWeight(count, minCount, maxCount) {
+  if (maxCount <= minCount) return 0.4;
+  const span = Math.sqrt(maxCount) - Math.sqrt(minCount);
+  return (Math.sqrt(count) - Math.sqrt(minCount)) / span;
+}
+
+function CloudWord({ text, weight }) {
+  const size = Math.round(
+    CLOUD_MIN_SIZE + weight * (CLOUD_MAX_SIZE - CLOUD_MIN_SIZE)
+  );
+  const color = cloudColor(text);
+  const top = weight >= 0.75;
   return (
-    <View style={styles.meaningsRow}>
-      {columns.map((col, ci) => (
-        <View key={ci} style={styles.meaningsCol}>
-          {col.map((meaning, j) => (
-            <View key={`${meaning}-${j}`} style={styles.meaningChip}>
-              <Text style={styles.meaningText}>{meaning}</Text>
-            </View>
-          ))}
-        </View>
-      ))}
+    <View
+      style={[
+        styles.cloudPill,
+        {
+          backgroundColor: top ? color.solid : color.soft,
+          paddingHorizontal: Math.round(size * 0.55),
+          paddingVertical: Math.round(size * 0.18),
+          borderRadius: size,
+        },
+      ]}
+    >
+      <Text
+        style={[
+          styles.cloudWord,
+          {
+            color: top ? COLORS.surface : color.text,
+            fontSize: size,
+            lineHeight: Math.round(size * 1.2),
+            fontWeight: weight >= 0.35 ? '800' : '700',
+          },
+        ]}
+      >
+        {text}
+      </Text>
+    </View>
+  );
+}
+
+function MeaningCloud({ cloud }) {
+  const counts = cloud.map((item) => item.count);
+  const minCount = Math.min(...counts);
+  const maxCount = Math.max(...counts);
+
+  return (
+    <View style={styles.cloudPanel}>
+      <Text style={styles.cloudTitle}>Meanings in the Quran</Text>
+      <Text style={styles.cloudHint}>
+        The bigger the word, the more often it is used in the Quran
+      </Text>
+      <View style={styles.cloud}>
+        {[...cloud].sort((a, b) => b.count - a.count).map((item, index) => (
+          <CloudWord
+            key={`${item.text}-${index}`}
+            text={item.text}
+            weight={cloudWeight(item.count, minCount, maxCount)}
+          />
+        ))}
+      </View>
     </View>
   );
 }
@@ -187,8 +244,8 @@ function CardBack({ roots, loading, onFlipBack }) {
                     {entry.transliteration}
                   </Text>
                 ) : null}
-                {entry.meanings?.length > 0 ? (
-                  <MeaningsColumns meanings={entry.meanings} />
+                {entry.cloud?.length > 0 ? (
+                  <MeaningCloud cloud={entry.cloud} />
                 ) : null}
               </View>
             ))
@@ -231,6 +288,7 @@ export default function ExampleCard({
   chapterKey: chapterKeyProp,
   ruleKey,
   noQuranExample = false,
+  disableAudio = false,
 }) {
   const chapterKey =
     chapterKeyProp ?? getChapterForRule(ruleKey)?.key ?? null;
@@ -276,12 +334,12 @@ export default function ExampleCard({
 
   const audioRefs = useMemo(
     () =>
-      noQuranExample
+      noQuranExample || disableAudio
         ? []
         : words
             .filter((w) => w.wordNo != null)
             .map((w) => ({ surahId, ayahNo, wordNo: w.wordNo })),
-    [words, surahId, ayahNo, noQuranExample]
+    [words, surahId, ayahNo, noQuranExample, disableAudio]
   );
 
   const autoPlayedRef = useRef(false);
@@ -500,15 +558,17 @@ export default function ExampleCard({
               word={words[0]}
               isOnly
               chapterKey={chapterKey}
+              ruleKey={ruleKey}
               onSubtleCard={noQuranExample}
             />
-          ) : (
+          ) : ruleKey === 'ayahs-with-vpn' ? null : (
             <View style={styles.wordBlocks}>
               {words.map((w, i) => (
                 <WordGrammarBlock
                   key={`${w.wordNo ?? w.text}-${i}`}
                   word={w}
                   chapterKey={chapterKey}
+                  ruleKey={ruleKey}
                   onSubtleCard={noQuranExample}
                 />
               ))}
@@ -563,6 +623,9 @@ export default function ExampleCard({
         >
           {backMode === 'occurrences' ? (
             <OccurrencesBack
+              words={words}
+              translation={translation}
+              chapterKey={chapterKey}
               occurrences={occurrences}
               total={occurrenceTotal}
               loading={loadingOccurrences}
@@ -844,27 +907,47 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 8,
   },
-  meaningsRow: {
+  cloudPanel: {
+    marginTop: 8,
+    backgroundColor: COLORS.paper,
+    borderRadius: RADII.xl,
+    paddingTop: 14,
+    paddingBottom: 14,
+    paddingHorizontal: 12,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  cloudTitle: {
+    color: COLORS.textSecondary,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  cloud: {
     flexDirection: 'row',
-    gap: 6,
-  },
-  meaningsCol: {
-    flex: 1,
-    gap: 5,
-  },
-  meaningChip: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: RADII.sm,
-    paddingVertical: 5,
-    paddingHorizontal: 8,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
     alignItems: 'center',
+    gap: 8,
   },
-  meaningText: {
-    color: COLORS.onRoot,
-    fontSize: 13,
-    lineHeight: 18,
+  cloudPill: {
+    maxWidth: '100%',
+  },
+  cloudWord: {
+    textAlign: 'center',
+  },
+  cloudHint: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',
+    marginBottom: 14,
   },
   backEmpty: {
     color: COLORS.onRoot,

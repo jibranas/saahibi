@@ -49,6 +49,16 @@ export const COLORS = {
   shadow: '#000000',
 };
 
+/** Friendly pill colors for the root meaning cloud, on paper. */
+export const CLOUD_PALETTE = [
+  { text: '#1d5c46', soft: '#e3f1ea', solid: '#2f7a5f' }, // green
+  { text: '#8a5a12', soft: '#fbefd5', solid: '#c98a2b' }, // gold
+  { text: '#b3392f', soft: '#fbe3df', solid: '#c9503f' }, // coral
+  { text: '#2c4a86', soft: '#e3ebf8', solid: '#3f63a8' }, // blue
+  { text: '#8e3f73', soft: '#f6e3ef', solid: '#a8538b' }, // plum
+  { text: '#1f6f78', soft: '#ddf1f2', solid: '#2a8a94' }, // teal
+];
+
 export const SPACING = {
   xs: 4,
   sm: 8,

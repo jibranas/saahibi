@@ -4,23 +4,27 @@ import { isDbConnected } from '../../db.js';
 import {
   ensureParticleIndex,
   glossForParticle,
+  PARTICLE_GLOSS_EN,
 } from '../../lib/particles.js';
 import { allSegments } from '../../lib/morphologyStore.js';
-import { fetchTranslationsForWords, wordKey } from '../../lib/translations.js';
 
 const router = Router();
 
 /**
- * Particles (standalone and attached prefixes), excluding muqattaʿāt and DET:
- *   - PartOfSpeech === 'P'
- *   - deduped by particleDedupeKey (keeps short vowels; collapses sukun/shadda/marks)
- *   - occurrenceCount from segment tallies
+ * The 11 table particles (whole word, or a leading prefix on a host word):
+ *   - looked up on the bare-particle index by particleDedupeKey
+ *   - emitted in table order with the lesson English gloss
+ *   - occurrenceCount from those tallies (no pronoun suffixes, no segments
+ *     buried inside another word such as ذَٰلِكَ)
  */
 function examplesFromParticleIndex(index) {
   const examples = [];
 
-  for (const entry of index.values()) {
-    const { first, text, key, count, attached, lemma } = entry;
+  for (const key of PARTICLE_GLOSS_EN.keys()) {
+    const entry = index.get(key);
+    if (!entry) continue;
+
+    const { first, text, count } = entry;
     examples.push({
       surahId: first.surahId,
       ayahNo: first.ayahNo,
@@ -34,16 +38,9 @@ function examplesFromParticleIndex(index) {
           grammar: { partOfSpeech: 'P' },
         },
       ],
-      attached,
-      lemma,
+      translations: glossForParticle(key),
     });
   }
-
-  examples.sort((a, b) => {
-    if (a.surahId !== b.surahId) return a.surahId - b.surahId;
-    if (a.ayahNo !== b.ayahNo) return a.ayahNo - b.ayahNo;
-    return a.words[0].wordNo - b.words[0].wordNo;
-  });
 
   return examples;
 }
@@ -63,30 +60,6 @@ router.get('/', async (req, res, next) => {
     const index = await ensureParticleIndex();
     const examples = examplesFromParticleIndex(index);
     const limited = examples.slice(0, limit);
-
-    const standaloneRefs = limited
-      .filter((ex) => !ex.attached)
-      .map((ex) => ({
-        surahId: ex.surahId,
-        ayahNo: ex.ayahNo,
-        wordNo: ex.words?.[0]?.wordNo,
-      }));
-    const translationMap = await fetchTranslationsForWords(standaloneRefs);
-
-    for (const ex of limited) {
-      const gloss = glossForParticle(ex.particleKey, ex.lemma);
-      if (ex.attached) {
-        ex.translations = gloss;
-      } else {
-        const wordNo = ex.words?.[0]?.wordNo;
-        ex.translations =
-          translationMap.get(wordKey(ex.surahId, ex.ayahNo, wordNo)) ||
-          gloss ||
-          null;
-      }
-      delete ex.attached;
-      delete ex.lemma;
-    }
 
     res.json({
       count: limited.length,

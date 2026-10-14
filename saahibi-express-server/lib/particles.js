@@ -59,43 +59,52 @@ export function isAttachedParticle(record) {
   return prefix.length > 0;
 }
 
+function wordSegmentsKey(record) {
+  return `${record.SurahId}:${record.AyahNo}:${record.WordNo}`;
+}
+
+function hasPronounSuffix(record) {
+  return String(record.SuffixType || '').includes('PRON');
+}
+
 /**
- * Common English glosses for prefix / standalone particles when the host-word
- * translation would be misleading (e.g. بِسْمِ → "In the name of").
- * Keys are particleDedupeKey forms.
+ * Lesson hit: the particle is the whole word, or a prefix still in the
+ * leading prefix chain (every segment before it is also a prefix).
+ * Drops pronoun suffixes (عَنْهَا) and segments inside other words
+ * (the لِ and كَ of ذَٰلِكَ).
  */
-const PARTICLE_GLOSS_EN = new Map([
-  ['بِ', 'with / by / in'],
-  ['لِ', 'for / to'],
-  ['تَ', 'by (oath)'],
-  ['كَ', 'like / as'],
-  ['وَ', 'and'],
-  ['فَ', 'then / so'],
-  ['مِن', 'from'],
-  ['مَن', 'who'],
-  ['فِي', 'in'],
-  ['عَلَي', 'on / upon'],
-  ['اِلَي', 'to'],
-  ['عَن', 'about / away from'],
-  ['حَتَي', 'until'],
-  ['اَو', 'or'],
-  ['ثُم', 'then'],
-  ['اِن', 'if / indeed'],
-  ['اَن', 'that'],
-  ['مَا', 'what / not'],
-  ['لَا', 'no / not'],
-  ['لَعَل', 'perhaps'],
+function isBareParticleUse(record, wordSegments) {
+  if (hasPronounSuffix(record)) return false;
+  if (!isAttachedParticle(record)) {
+    return wordSegments.length === 1;
+  }
+  const segNo = Number(record.SegmentNo);
+  return wordSegments
+    .filter((segment) => Number(segment.SegmentNo) < segNo)
+    .every((segment) => isAttachedParticle(segment));
+}
+
+/**
+ * Particles taught in the ḥarf lesson, in table order.
+ * Keys are particleDedupeKey forms; values are the lesson English glosses.
+ */
+export const PARTICLE_GLOSS_EN = new Map([
+  ['بِ', 'In'],
+  ['عَن', '(away) From/ about'],
+  ['فِي', 'In/ during'],
+  ['كَ', 'As/ like'],
+  ['لِ', 'For (belongs to)'],
+  ['مِن', 'From'],
+  ['اِلَي', '(to)wards'],
+  ['حَتَي', 'Until'],
+  ['عَلَي', 'On/ upon/ over'],
+  ['مَع', 'With'],
+  ['وَ', 'And/ by (swear by)'],
 ]);
 
-export function glossForParticle(key, lemma) {
-  if (PARTICLE_GLOSS_EN.has(key)) {
-    return { en: PARTICLE_GLOSS_EN.get(key) };
-  }
-  const lemmaText = String(lemma || '').trim();
-  if (lemmaText && /^[a-zA-Z]/.test(lemmaText)) {
-    return { en: lemmaText };
-  }
-  return null;
+export function glossForParticle(key) {
+  if (!PARTICLE_GLOSS_EN.has(key)) return null;
+  return { en: PARTICLE_GLOSS_EN.get(key) };
 }
 
 /**
@@ -115,17 +124,34 @@ export function glossForParticle(key, lemma) {
 let particleIndex = null;
 
 function buildParticleIndex(records) {
+  /** @type {Map<string, object[]>} */
+  const segmentsByWord = new Map();
+  for (const record of records) {
+    const key = wordSegmentsKey(record);
+    let segments = segmentsByWord.get(key);
+    if (!segments) {
+      segments = [];
+      segmentsByWord.set(key, segments);
+    }
+    segments.push(record);
+  }
+
   /** @type {Map<string, ParticleEntry>} */
   const index = new Map();
 
   for (const record of records) {
-    if (record.PartOfSpeech !== 'P') continue;
-    if (isDetPrefix(record)) continue;
-    if (isMuqattaat(record)) continue;
-
     const text = String(record.Text || '').trim();
     const key = particleDedupeKey(text);
+    // مَعَ is tagged N (a zarf) in this corpus, but the lesson teaches it
+    // with the particles. Other nouns stay out.
+    const taughtAsParticle = record.PartOfSpeech === 'P' || key === 'مَع';
+    if (!taughtAsParticle) continue;
+    if (isDetPrefix(record)) continue;
+    if (isMuqattaat(record)) continue;
     if (!key) continue;
+
+    const wordSegments = segmentsByWord.get(wordSegmentsKey(record));
+    if (!wordSegments || !isBareParticleUse(record, wordSegments)) continue;
 
     const surahId = Number(record.SurahId);
     const ayahNo = Number(record.AyahNo);
@@ -155,7 +181,7 @@ function buildParticleIndex(records) {
   return index;
 }
 
-/** Build (once) the particle segment index over the full morphology store. */
+/** Build (once) the bare-particle index over the full morphology store. */
 export async function ensureParticleIndex() {
   if (particleIndex) return particleIndex;
   await ensureMorphologyStore();

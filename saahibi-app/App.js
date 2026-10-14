@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { BackHandler, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { setAudioModeAsync } from 'expo-audio';
 import { useFonts } from 'expo-font';
 import { PostHogProvider, usePostHog } from 'posthog-react-native';
 
-import CheatSheetPicker from './components/CheatSheetPicker';
 import CheatSheetViewer from './components/CheatSheetViewer';
+import CheatCardIntro from './components/CheatCardIntro';
 import FeedbackCoachmark from './components/FeedbackCoachmark';
 import FeedbackModal from './components/FeedbackModal';
 import HubTabBar from './components/HubTabBar';
 import { getChapterForRule, getNextLessonKey } from './data/chapters';
-import { CHEAT_SHEETS } from './data/cheatSheets';
+import { CHEAT_SHEETS, getCheatSheetByKey } from './data/cheatSheets';
 import { getRuleByKey } from './data/rules';
 import ChapterScreen from './screens/ChapterScreen';
 import CheatSheetsScreen from './screens/CheatSheetsScreen';
@@ -22,6 +22,7 @@ import RuleExamplesScreen from './screens/RuleExamplesScreen';
 import WelcomeScreen from './screens/WelcomeScreen';
 import { COLORS, FONTS, RADII } from './theme';
 import { getApiBaseUrl } from './utils/api';
+import { useEdgeBackPanResponder } from './utils/edgeBackSwipe';
 import {
   identifyBetaUser,
   loadBetaProfile,
@@ -37,6 +38,14 @@ import {
   loadFeedbackCoachmarkSeen,
   saveFeedbackCoachmarkSeen,
 } from './utils/feedbackCoachmark';
+import {
+  loadCheatCardIntroSeen,
+  saveCheatCardIntroSeen,
+} from './utils/cheatCardIntro';
+import {
+  loadCollectedSheetKeys,
+  saveCollectedSheetKeys,
+} from './utils/sheetsUnlock';
 import {
   POSTHOG_API_KEY,
   posthogOptions,
@@ -122,11 +131,13 @@ function AppContent() {
   const [betaProfile, setBetaProfile] = useState(null);
   const [coachmarkReady, setCoachmarkReady] = useState(false);
   const [showFeedbackCoachmark, setShowFeedbackCoachmark] = useState(false);
+  const [cheatCardIntroSeen, setCheatCardIntroSeen] = useState(false);
+  const [showCheatCardIntro, setShowCheatCardIntro] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [screen, setScreen] = useState('welcome');
   const [libraryReturnScreen, setLibraryReturnScreen] = useState('home');
   const [openSheet, setOpenSheet] = useState(null);
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [collectedSheetKeys, setCollectedSheetKeys] = useState([]);
   const [hiddenRuleKeys, setHiddenRuleKeys] = useState(() => getHiddenRuleKeys());
   const [hiddenChapterKeys, setHiddenChapterKeys] = useState(() =>
     getHiddenChapterKeys()
@@ -164,18 +175,23 @@ function AppContent() {
   // Restore a saved beta profile (or keep the welcome gate).
   useEffect(() => {
     let cancelled = false;
-    Promise.all([loadBetaProfile(), loadFeedbackCoachmarkSeen()]).then(
-      ([profile, coachmarkSeen]) => {
-        if (cancelled) return;
-        if (profile) {
-          setBetaProfile(profile);
-          setScreen('home');
-          setShowFeedbackCoachmark(!coachmarkSeen);
-        }
-        setCoachmarkReady(true);
-        setProfileReady(true);
+    Promise.all([
+      loadBetaProfile(),
+      loadFeedbackCoachmarkSeen(),
+      loadCollectedSheetKeys(),
+      loadCheatCardIntroSeen(),
+    ]).then(([profile, coachmarkSeen, collectedKeys, introSeen]) => {
+      if (cancelled) return;
+      setCollectedSheetKeys(collectedKeys);
+      setCheatCardIntroSeen(introSeen);
+      if (profile) {
+        setBetaProfile(profile);
+        setScreen('home');
+        setShowFeedbackCoachmark(!coachmarkSeen);
       }
-    );
+      setCoachmarkReady(true);
+      setProfileReady(true);
+    });
     return () => {
       cancelled = true;
     };
@@ -290,16 +306,90 @@ function AppContent() {
   const expandSheet = useCallback((sheet) => {
     if (!sheet) return;
     setOpenSheet(sheet);
-    setPickerOpen(false);
+  }, []);
+
+  const openCheatCardLesson = useCallback((lesson) => {
+    const sheet = getCheatSheetByKey(lesson?.sheetKey);
+    if (!sheet) return;
+    setOpenSheet(sheet);
+    if (!cheatCardIntroSeen) setShowCheatCardIntro(true);
+    setCollectedSheetKeys((current) => {
+      if (current.includes(sheet.key)) return current;
+      const next = [...current, sheet.key];
+      saveCollectedSheetKeys(next).catch((e) => {
+        console.warn('[sheets] save failed:', e?.message || e);
+      });
+      return next;
+    });
+  }, [cheatCardIntroSeen]);
+
+  const dismissCheatCardIntro = useCallback(() => {
+    setShowCheatCardIntro(false);
+    setCheatCardIntroSeen(true);
+    saveCheatCardIntroSeen().catch((e) => {
+      console.warn('[cheat-card-intro] save failed:', e?.message || e);
+    });
   }, []);
 
   const closeSheet = useCallback(() => {
     setOpenSheet(null);
   }, []);
 
-  const openSheetPicker = useCallback(() => {
-    setPickerOpen(true);
-  }, []);
+  const goBack = useCallback(() => {
+    if (showCheatCardIntro && openSheet) {
+      dismissCheatCardIntro();
+      return true;
+    }
+    if (openSheet) {
+      closeSheet();
+      return true;
+    }
+    if (feedbackOpen) {
+      setFeedbackOpen(false);
+      return true;
+    }
+    if (betaProfile && showFeedbackCoachmark && screen === 'home') {
+      dismissFeedbackCoachmark();
+      return true;
+    }
+    if (screen.startsWith('examples:')) {
+      goToChapterOf(screen.slice('examples:'.length));
+      return true;
+    }
+    if (screen.startsWith('lesson:')) {
+      goToChapterOf(screen.slice('lesson:'.length));
+      return true;
+    }
+    if (screen.startsWith('chapter:')) {
+      goHome();
+      return true;
+    }
+    if (screen === 'cheatsheets') {
+      closeCheatSheets();
+      return true;
+    }
+    return false;
+  }, [
+    showCheatCardIntro,
+    openSheet,
+    dismissCheatCardIntro,
+    closeSheet,
+    feedbackOpen,
+    betaProfile,
+    showFeedbackCoachmark,
+    screen,
+    dismissFeedbackCoachmark,
+    goToChapterOf,
+    goHome,
+    closeCheatSheets,
+  ]);
+
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => goBack());
+    return () => sub.remove();
+  }, [goBack]);
+
+  const edgeBackHandlers = useEdgeBackPanResponder(goBack);
 
   // Don't block the whole app on the Arabic font — if it fails or hangs on
   // Android, returning null leaves a permanent blank white screen. Welcome /
@@ -323,6 +413,7 @@ function AppContent() {
         chapterKey={chapterKey}
         hiddenRuleKeys={hiddenRuleKeys}
         onOpenLesson={(ruleKey) => setScreen(`lesson:${ruleKey}`)}
+        onOpenCheatCard={openCheatCardLesson}
         header={
           <AppHeader
             title="Chapter"
@@ -348,7 +439,6 @@ function AppContent() {
         <LessonIntroScreen
           rule={rule}
           onStartLesson={() => setScreen(`examples:${ruleKey}`)}
-          onCheatSheets={openSheetPicker}
           header={
             <AppHeader
               title="Lesson"
@@ -405,7 +495,6 @@ function AppContent() {
             header={header}
             onNextLesson={onNextLesson}
             nextEndpoint={nextEndpoint}
-            onCheatSheets={openSheetPicker}
           />
         ) : (
           <RuleExamplesScreen
@@ -414,7 +503,6 @@ function AppContent() {
             header={header}
             onNextLesson={onNextLesson}
             nextEndpoint={nextEndpoint}
-            onCheatSheets={openSheetPicker}
           />
         );
     }
@@ -422,6 +510,9 @@ function AppContent() {
     const fromHub = libraryReturnScreen === 'home';
     body = (
       <CheatSheetsScreen
+        sheets={CHEAT_SHEETS.filter((sheet) =>
+          collectedSheetKeys.includes(sheet.key)
+        )}
         onBack={fromHub ? null : closeCheatSheets}
         onOpenSheet={expandSheet}
       />
@@ -442,7 +533,7 @@ function AppContent() {
   const isHub = screen === 'home' || screen === 'cheatsheets';
 
   return (
-    <View style={styles.appRoot}>
+    <View style={styles.appRoot} {...(edgeBackHandlers ?? {})}>
       <StatusBar style="dark" />
       <View style={styles.bodySlot}>{body}</View>
       {betaProfile && isHub ? (
@@ -450,6 +541,7 @@ function AppContent() {
           active={screen === 'cheatsheets' ? 'cheatsheets' : 'home'}
           onChapters={goHome}
           onCheatSheets={openCheatSheets}
+          showSheets={collectedSheetKeys.length > 0}
         />
       ) : null}
       {betaProfile && !coachmarkVisible ? (
@@ -476,19 +568,15 @@ function AppContent() {
       {coachmarkVisible ? (
         <FeedbackCoachmark onDismiss={dismissFeedbackCoachmark} />
       ) : null}
-      {betaProfile ? (
-        <CheatSheetPicker
-          visible={pickerOpen}
-          sheets={CHEAT_SHEETS}
-          onSelect={expandSheet}
-          onClose={() => setPickerOpen(false)}
-        />
-      ) : null}
       <CheatSheetViewer
         sheet={openSheet}
         visible={Boolean(openSheet)}
-        onClose={closeSheet}
-      />
+        onClose={showCheatCardIntro ? dismissCheatCardIntro : closeSheet}
+      >
+        {showCheatCardIntro && openSheet ? (
+          <CheatCardIntro sheet={openSheet} onDismiss={dismissCheatCardIntro} />
+        ) : null}
+      </CheatSheetViewer>
     </View>
   );
 }

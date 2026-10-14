@@ -178,18 +178,14 @@ export default function LessonIntroScreen({
               <PatternCard
                 intro={intro}
                 body={rule.rule}
-                ruleKey={rule.ruleTtsKey ?? rule.key}
                 defaultExpanded
-                autoPlay
               />
             </View>
           </>
         ) : (
           <PatternCard
             body={rule.rule}
-            ruleKey={rule.ruleTtsKey ?? rule.key}
             defaultExpanded
-            autoPlay
           />
         )}
       </ScrollView>

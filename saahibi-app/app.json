@@ -28,7 +28,8 @@
       },
       "edgeToEdgeEnabled": true,
       "permissions": [
-        "android.permission.MODIFY_AUDIO_SETTINGS"
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.RECORD_AUDIO"
       ],
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO"
@@ -43,6 +44,12 @@
       "expo-font",
       "expo-localization",
       "expo-asset"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "ec79f40a-44d9-4b99-98dc-4b9ee4fd02a4"
+      }
+    },
+    "owner": "jibranas"
   }
 }

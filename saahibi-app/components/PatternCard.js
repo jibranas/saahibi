@@ -15,7 +15,6 @@ import {
   splitByPatternPart,
   widenMarkOnlyRuns,
 } from '../utils/arabicSegments';
-import { playRuleTts, stopRuleTts } from '../utils/ruleTts';
 
 const FADE_DURATION = 900;
 const HOLD_DURATION = 500;
@@ -59,13 +58,12 @@ function PulsedPatternRow({
     splitByPatternPart(highlight, patternPart) ?? [
       { text: highlight, isPattern: true },
     ];
-  // Android shapes each nested Text on its own, so both layers are built from
-  // the same joiner-padded runs — otherwise the gold wash drifts off the
-  // letters it is meant to sit behind.
+  // Keep a leading tanween on the letter it belongs to (شَهِيدًا). Android
+  // then pads seams with joiners, and both of its layers use those same runs
+  // so the gold wash stays on the letters.
   const isAndroid = Platform.OS === 'android';
-  const shapedRuns = isAndroid
-    ? joinRunsForShaping(widenMarkOnlyRuns(runs))
-    : runs;
+  const widenedRuns = widenMarkOnlyRuns(runs);
+  const shapedRuns = isAndroid ? joinRunsForShaping(widenedRuns) : widenedRuns;
 
   const patternTextStyle = [
     styles.patternText,
@@ -74,21 +72,13 @@ function PulsedPatternRow({
     inline && compact && styles.patternTextInlineCollapsed,
   ];
 
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={
-        label
-          ? `${label} pattern ${highlight}`
-          : `Pattern ${highlight}`
-      }
-      style={[
-        styles.patternRow,
-        compact && styles.patternRowCollapsed,
-        inline && styles.patternRowInline,
-      ]}
-    >
+  const rowStyle = [
+    styles.patternRow,
+    compact && styles.patternRowCollapsed,
+    inline && styles.patternRowInline,
+  ];
+  const rowBody = (
+    <>
       {label ? (
         <Text
           style={[
@@ -127,6 +117,23 @@ function PulsedPatternRow({
           </Text>
         </Animated.View>
       </View>
+    </>
+  );
+
+  if (!onPress) {
+    return <View style={rowStyle}>{rowBody}</View>;
+  }
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={
+        label ? `${label} pattern ${highlight}` : `Pattern ${highlight}`
+      }
+      style={rowStyle}
+    >
+      {rowBody}
     </Pressable>
   );
 }
@@ -154,12 +161,10 @@ function PulsedPatternRow({
 export default function PatternCard({
   intro,
   body,
-  ruleKey,
   expanded: expandedProp,
   onToggleExpanded,
   defaultExpanded = false,
   overlayDetails = false,
-  autoPlay = false,
 }) {
   const [internalExpanded, setInternalExpanded] = useState(defaultExpanded);
   const isControlled = expandedProp !== undefined;
@@ -176,8 +181,6 @@ export default function PatternCard({
   const hasPatterns = patterns.length > 0;
   const patternsInline = patterns.length > 1;
   const pulse = useRef(new Animated.Value(0)).current;
-  const autoPlayedRef = useRef(false);
-  const statusRef = useRef('idle');
 
   useEffect(() => {
     if (!hasPatterns) return undefined;
@@ -214,48 +217,10 @@ export default function PatternCard({
     }
   }, [isControlled, onToggleExpanded]);
 
-  const [status, setStatus] = useState('idle');
-  statusRef.current = status;
-
-  const startPlayback = useCallback(async () => {
-    if (!ruleKey || statusRef.current === 'playing') return;
-    setStatus('playing');
-    const variant = showNoticeSummary ? 'summary' : 'full';
-    const ok = await playRuleTts(ruleKey, variant);
-    setStatus(ok ? 'done' : 'unavailable');
-  }, [ruleKey, showNoticeSummary]);
-
-  const playIntro = useCallback(
-    (e) => {
-      e.stopPropagation?.();
-      startPlayback();
-    },
-    [startPlayback]
-  );
-
-  useEffect(() => {
-    if (!autoPlay || !ruleKey || autoPlayedRef.current) return undefined;
-    autoPlayedRef.current = true;
-    startPlayback();
-    return () => {
-      stopRuleTts();
-    };
-  }, [autoPlay, ruleKey, startPlayback]);
-
-  const statusLabel =
-    status === 'playing'
-      ? 'Playing explanation…'
-      : status === 'unavailable'
-      ? 'Explanation audio unavailable'
-      : 'Tap ▶ to hear the explanation';
-
   const details = expanded ? (
-    <>
-      <Text style={[styles.body, overlayDetails && styles.bodyOverlay]}>
-        {body}
-      </Text>
-      <Text style={styles.status}>{statusLabel}</Text>
-    </>
+    <Text style={[styles.body, overlayDetails && styles.bodyOverlay]}>
+      {body}
+    </Text>
   ) : null;
 
   return (
@@ -266,58 +231,46 @@ export default function PatternCard({
           compact ? styles.cardCollapsed : styles.cardExpanded,
         ]}
       >
-        <Pressable
-          onPress={toggleExpanded}
-          accessibilityRole="button"
-          accessibilityLabel={
-            expanded ? 'Hide pattern explanation' : 'Show pattern explanation'
-          }
-          style={styles.header}
-        >
-          <Text style={styles.kicker}>
-            {patternless ? 'What to notice' : 'Look for this pattern'}
-          </Text>
-          <View style={styles.actions}>
-            <Pressable
-              onPress={playIntro}
-              hitSlop={10}
-              accessibilityLabel="Play pattern explanation"
-              accessibilityRole="button"
-              style={({ pressed }) => [
-                styles.playButton,
-                compact && styles.playButtonCollapsed,
-                pressed && styles.playButtonPressed,
-              ]}
-            >
-              <Text
+        {overlayDetails ? (
+          <Pressable
+            onPress={toggleExpanded}
+            accessibilityRole="button"
+            accessibilityLabel={
+              expanded ? 'Hide pattern explanation' : 'Show pattern explanation'
+            }
+            style={styles.header}
+          >
+            <Text style={styles.kicker}>
+              {patternless ? 'What to notice' : 'Look for this pattern'}
+            </Text>
+            <View style={styles.actions}>
+              <View
                 style={[
-                  styles.playGlyph,
-                  compact && styles.playGlyphCollapsed,
+                  styles.expandChip,
+                  compact && styles.expandChipCollapsed,
+                  expanded ? styles.expandChipOpen : styles.expandChipClosed,
                 ]}
               >
-                ▶
-              </Text>
-            </Pressable>
-            <View
-              style={[
-                styles.expandChip,
-                compact && styles.expandChipCollapsed,
-                expanded ? styles.expandChipOpen : styles.expandChipClosed,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.expandChipText,
-                  expanded
-                    ? styles.expandChipTextOpen
-                    : styles.expandChipTextClosed,
-                ]}
-              >
-                {expanded ? 'Hide' : 'Details'}
-              </Text>
+                <Text
+                  style={[
+                    styles.expandChipText,
+                    expanded
+                      ? styles.expandChipTextOpen
+                      : styles.expandChipTextClosed,
+                  ]}
+                >
+                  {expanded ? 'Hide' : 'Details'}
+                </Text>
+              </View>
             </View>
+          </Pressable>
+        ) : (
+          <View style={styles.header}>
+            <Text style={styles.kicker}>
+              {patternless ? 'What to notice' : 'Look for this pattern'}
+            </Text>
           </View>
-        </Pressable>
+        )}
 
         {hasPatterns ? (
           <View
@@ -335,7 +288,7 @@ export default function PatternCard({
                 pulse={pulse}
                 compact={compact}
                 inline={patternsInline}
-                onPress={toggleExpanded}
+                onPress={overlayDetails ? toggleExpanded : undefined}
               />
             ))}
           </View>
@@ -527,41 +480,6 @@ const styles = StyleSheet.create({
   },
   bodyOverlay: {
     marginTop: 0,
-  },
-  status: {
-    color: COLORS.textMuted,
-    fontSize: 11,
-    marginTop: 10,
-  },
-  playButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 1.5,
-    borderColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.surface,
-  },
-  playButtonCollapsed: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-  },
-  playButtonPressed: {
-    opacity: 0.6,
-    transform: [{ scale: 0.94 }],
-  },
-  playGlyph: {
-    color: COLORS.primary,
-    fontSize: 13,
-    fontWeight: '700',
-    lineHeight: 14,
-    marginLeft: 2,
-  },
-  playGlyphCollapsed: {
-    fontSize: 11,
-    lineHeight: 12,
   },
   expandChip: {
     borderRadius: RADII.pill,

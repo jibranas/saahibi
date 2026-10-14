@@ -166,6 +166,7 @@ export default function RuleExamplesScreen({
           ruleKey={rule.key}
           noQuranExample={forged}
           autoPlay={!forged}
+          disableAudio={rule.key === 'single-word-harf'}
         />
       );
     },
@@ -230,7 +231,6 @@ export default function RuleExamplesScreen({
         <PatternCard
           intro={getLessonIntro(rule.key)}
           body={rule.rule}
-          ruleKey={rule.ruleTtsKey ?? rule.key}
           expanded={ruleExpanded}
           onToggleExpanded={() => setRuleExpanded((e) => !e)}
           overlayDetails

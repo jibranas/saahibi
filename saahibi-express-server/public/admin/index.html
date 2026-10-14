@@ -10,7 +10,17 @@
     <header class="top">
       <div>
         <h1>Saahibi Admin</h1>
-        <p class="sub">Show all by default — uncheck to hide from the app</p>
+        <p class="sub" id="page-sub">
+          Show all by default — uncheck to hide from the app
+        </p>
+        <nav class="tabs" aria-label="Admin views">
+          <button type="button" class="tab active" id="tab-rules" data-tab="rules">
+            Rules
+          </button>
+          <button type="button" class="tab" id="tab-feedback" data-tab="feedback">
+            Feedback
+          </button>
+        </nav>
       </div>
       <div class="top-actions">
         <label class="token-field">
@@ -26,7 +36,7 @@
       </div>
     </header>
 
-    <main class="layout">
+    <main class="layout" id="rules-view">
       <section class="pane rules-pane">
         <div class="pane-head">
           <h2>Rules</h2>
@@ -56,6 +66,13 @@
           Select a rule to load its examples.
         </div>
         <div id="examples-list" class="examples-list"></div>
+      </section>
+    </main>
+
+    <main class="feedback-layout" id="feedback-view" hidden>
+      <section class="pane feedback-pane">
+        <div id="feedback-status" class="status"></div>
+        <div id="feedback-list" class="feedback-list"></div>
       </section>
     </main>
 

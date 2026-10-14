@@ -25,6 +25,28 @@ export function applyCurriculum(next) {
   return true;
 }
 
+/** Cheat-card lesson appended after the last lesson of these chapters. */
+export const CHEAT_CARD_LESSONS = {
+  foundations: {
+    key: 'cheat-card-particles',
+    simpleTitle: 'Cheat card',
+    title: 'Particles',
+    sheetKey: 'particles',
+    cheatCard: true,
+  },
+  'duals-plurals': {
+    key: 'cheat-card-muslim',
+    simpleTitle: 'Cheat card',
+    title: "Jam' Saalim — Muslim",
+    sheetKey: 'jam-saalim-muslim',
+    cheatCard: true,
+  },
+};
+
+export function getCheatCardLesson(chapterKey) {
+  return CHEAT_CARD_LESSONS[chapterKey] ?? null;
+}
+
 export function getChapterByKey(key) {
   return CHAPTERS.find((chapter) => chapter.key === key) ?? null;
 }

@@ -7,6 +7,25 @@ const ruleSearchEl = document.getElementById('rule-search');
 const adminTokenEl = document.getElementById('admin-token');
 const hideAllBtn = document.getElementById('hide-all');
 const showAllBtn = document.getElementById('show-all');
+const rulesViewEl = document.getElementById('rules-view');
+const feedbackViewEl = document.getElementById('feedback-view');
+const feedbackStatusEl = document.getElementById('feedback-status');
+const feedbackListEl = document.getElementById('feedback-list');
+const pageSubEl = document.getElementById('page-sub');
+const tabButtons = [...document.querySelectorAll('.tab')];
+
+const RULES_SUB = 'Show all by default — uncheck to hide from the app';
+const FEEDBACK_SUB = 'Notes testers sent from the app';
+
+const SCREEN_LABELS = {
+  Welcome: 'Welcome',
+  FeedbackCoachmark: 'Home',
+  Home: 'Home',
+  CheatSheets: 'Cheat sheets',
+  Chapter: 'Chapter',
+  LessonIntro: 'Lesson',
+  RuleExamples: 'Examples',
+};
 
 const state = {
   chapters: [],
@@ -14,6 +33,7 @@ const state = {
   selectedKey: null,
   examples: [],
   search: '',
+  tab: 'rules',
 };
 
 const TOKEN_KEY = 'saahibi-admin-token';
@@ -364,7 +384,102 @@ async function bulkSetHidden(hidden) {
   }
 }
 
-document.getElementById('refresh-rules').addEventListener('click', loadRules);
+function formatWhen(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function whoLine(note) {
+  const email =
+    note.email || (note.distinctId?.includes('@') ? note.distinctId : null);
+  const parts = [note.name, email].filter(Boolean);
+  return parts.join(' · ') || 'Unknown tester';
+}
+
+function contextLine(note) {
+  const screen = SCREEN_LABELS[note.screen] || note.screen;
+  const place = note.ruleTitle || note.chapterTitle;
+  const when = formatWhen(note.timestamp);
+  return [screen, place, when].filter(Boolean).join(' · ');
+}
+
+function renderFeedback(notes) {
+  feedbackListEl.replaceChildren();
+  for (const note of notes) {
+    const card = document.createElement('article');
+    card.className = 'feedback-card';
+
+    const message = document.createElement('p');
+    message.className = 'feedback-message';
+    message.textContent = note.message || '(empty note)';
+
+    const who = document.createElement('p');
+    who.className = 'feedback-who';
+    who.textContent = whoLine(note);
+
+    const context = document.createElement('p');
+    context.className = 'feedback-context';
+    context.textContent = contextLine(note);
+
+    card.append(message, who, context);
+    feedbackListEl.appendChild(card);
+  }
+}
+
+async function loadFeedback() {
+  feedbackStatusEl.classList.remove('error');
+  feedbackStatusEl.textContent = 'Loading feedback…';
+  feedbackListEl.replaceChildren();
+  try {
+    const data = await api('/api/admin/feedback');
+    if (!data.configured) {
+      feedbackStatusEl.textContent =
+        data.message || 'PostHog is not configured.';
+      return;
+    }
+    const notes = data.notes || [];
+    if (!notes.length) {
+      feedbackStatusEl.textContent = 'No feedback yet.';
+      return;
+    }
+    const capped = data.limit && notes.length >= data.limit;
+    feedbackStatusEl.textContent = capped
+      ? `Latest ${notes.length} notes`
+      : `${notes.length} note${notes.length === 1 ? '' : 's'}`;
+    renderFeedback(notes);
+  } catch (err) {
+    feedbackStatusEl.textContent = err.message;
+    feedbackStatusEl.classList.add('error');
+  }
+}
+
+function showTab(tab) {
+  state.tab = tab;
+  const feedback = tab === 'feedback';
+  rulesViewEl.hidden = feedback;
+  feedbackViewEl.hidden = !feedback;
+  pageSubEl.textContent = feedback ? FEEDBACK_SUB : RULES_SUB;
+  for (const button of tabButtons) {
+    button.classList.toggle('active', button.dataset.tab === tab);
+  }
+  if (feedback) loadFeedback();
+}
+
+for (const button of tabButtons) {
+  button.addEventListener('click', () => showTab(button.dataset.tab));
+}
+
+document.getElementById('refresh-rules').addEventListener('click', () => {
+  if (state.tab === 'feedback') loadFeedback();
+  else loadRules();
+});
 ruleSearchEl.addEventListener('input', () => {
   state.search = ruleSearchEl.value;
   renderRules();

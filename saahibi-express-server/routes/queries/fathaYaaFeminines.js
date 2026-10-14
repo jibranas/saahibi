@@ -29,7 +29,6 @@ function buildFathaYaaFemininesExamples(records) {
       Number(record.Person) === 0 &&
       Number(record.Gender) === 2 &&
       Number(record.SegmentNo) === 1 &&
-      record.NominalCase &&
       FATHA_YAA_BW_RE.test(String(record.TextBw || '')) &&
       !wordsWithMultipleSegments.has(wordKeyStr)
     ) {

@@ -58,9 +58,21 @@ const POS_ROLES = {
   ACC: 'Accusative particle',
 };
 
+/** Three Kinds of Words stays on the introductory noun / verb / particle labels. */
+const THREE_KINDS_RULE_KEY = 'ayahs-with-vpn';
+const THREE_KINDS_ROLES = {
+  N: 'Ism (Noun)',
+  V: "Fi'l (Verb)",
+  P: 'Harf (Particle)',
+};
+
 /** Friendly role label for a part-of-speech code, or null. */
-export function roleFromPartOfSpeech(partOfSpeech) {
-  return POS_ROLES[String(partOfSpeech ?? '')] ?? null;
+export function roleFromPartOfSpeech(partOfSpeech, { ruleKey } = {}) {
+  const code = String(partOfSpeech ?? '');
+  if (ruleKey === THREE_KINDS_RULE_KEY) {
+    return THREE_KINDS_ROLES[code] ?? null;
+  }
+  return POS_ROLES[code] ?? null;
 }
 
 /**

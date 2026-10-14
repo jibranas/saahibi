@@ -177,7 +177,6 @@ export default function MawsufSifahScreen({
         <PatternCard
           intro={getLessonIntro(rule.key)}
           body={rule.rule}
-          ruleKey={rule.ruleTtsKey ?? rule.key}
           expanded={ruleExpanded}
           onToggleExpanded={() => setRuleExpanded((e) => !e)}
           overlayDetails

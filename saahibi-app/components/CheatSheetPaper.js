@@ -3,9 +3,9 @@ import { StyleSheet, Text, View } from 'react-native';
 import { COLORS, FONTS, RADII } from '../theme';
 
 const DEFAULT_COLUMNS = [
-  { key: 'gen', label: 'Majroor', labelAr: 'مجرور', mark: 'ـٍ' },
-  { key: 'acc', label: 'Mansoob', labelAr: 'منصوب', mark: 'ـً' },
   { key: 'nom', label: "'Marfoo", labelAr: 'مرفوع', mark: 'ـٌ' },
+  { key: 'acc', label: 'Mansoob', labelAr: 'منصوب', mark: 'ـً' },
+  { key: 'gen', label: 'Majroor', labelAr: 'مجرور', mark: 'ـٍ' },
 ];
 
 function Cell({ cell, compact }) {
@@ -31,17 +31,9 @@ function Cell({ cell, compact }) {
   );
 }
 
-/**
- * Live layout of a cheat-sheet table. `compact` shrinks type for library
- * thumbnails (Arabic only). Tilt and shadow belong on the wrapper, not here.
- */
-export default function CheatSheetPaper({ sheet, compact = false }) {
-  if (!sheet) return null;
-  const columns = sheet.columns ?? DEFAULT_COLUMNS;
-  const groups = sheet.groups ?? [];
-
+function SheetHeading({ sheet, compact }) {
   return (
-    <View style={[styles.paper, compact && styles.paperCompact]}>
+    <>
       <Text
         style={[styles.title, compact && styles.titleCompact]}
         numberOfLines={1}
@@ -54,6 +46,56 @@ export default function CheatSheetPaper({ sheet, compact = false }) {
       >
         {sheet.subtitleAr}
       </Text>
+    </>
+  );
+}
+
+function ItemList({ items, compact }) {
+  return (
+    <View>
+      {items.map((item) => (
+        <View key={item.ar} style={[styles.itemRow, compact && styles.itemRowCompact]}>
+          <Text
+            style={[styles.itemEn, compact && styles.itemEnCompact]}
+            numberOfLines={1}
+          >
+            {item.en}
+          </Text>
+          <Text
+            style={[styles.itemAr, compact && styles.itemArCompact]}
+            numberOfLines={1}
+          >
+            {item.ar}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/**
+ * Live layout of a cheat sheet. A sheet with `items` is a gloss list;
+ * otherwise it is a case × number × gender table. `compact` shrinks type
+ * for library thumbnails. Tilt and shadow belong on the wrapper, not here.
+ */
+export default function CheatSheetPaper({ sheet, compact = false }) {
+  if (!sheet) return null;
+
+  if (Array.isArray(sheet.items)) {
+    return (
+      <View style={[styles.paper, compact && styles.paperCompact]}>
+        <SheetHeading sheet={sheet} compact={compact} />
+        <ItemList items={sheet.items} compact={compact} />
+      </View>
+    );
+  }
+
+  const columns = sheet.columns ?? DEFAULT_COLUMNS;
+  const groups = sheet.groups ?? [];
+
+  return (
+    <View style={[styles.paper, compact && styles.paperCompact]}>
+      <SheetHeading sheet={sheet} compact={compact} />
 
       <View style={styles.table}>
           <View style={[styles.row, styles.headerRow]}>
@@ -180,6 +222,39 @@ const styles = StyleSheet.create({
     fontSize: 8,
     lineHeight: 14,
     marginBottom: 4,
+  },
+  itemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: COLORS.border,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+  },
+  itemRowCompact: {
+    paddingVertical: 2,
+    gap: 4,
+  },
+  itemAr: {
+    fontFamily: FONTS.arabic,
+    color: COLORS.primary,
+    fontSize: 20,
+    lineHeight: 32,
+    writingDirection: 'rtl',
+  },
+  itemArCompact: {
+    fontSize: 9,
+    lineHeight: 14,
+  },
+  itemEn: {
+    flex: 1,
+    color: COLORS.textSecondary,
+    fontSize: 13,
+  },
+  itemEnCompact: {
+    fontSize: 6,
   },
   table: {
     minWidth: 0,

@@ -50,9 +50,14 @@ function Tab({ label, active, onPress, icon }) {
 }
 
 /**
- * Two-item bar for hub screens: Chapters | Cheat sheets.
+ * Hub bar: Chapters, plus Sheets once the learner has opened a cheat card.
  */
-export default function HubTabBar({ active, onChapters, onCheatSheets }) {
+export default function HubTabBar({
+  active,
+  onChapters,
+  onCheatSheets,
+  showSheets = false,
+}) {
   return (
     <View style={styles.wrap}>
       <View style={styles.bar}>
@@ -62,12 +67,14 @@ export default function HubTabBar({ active, onChapters, onCheatSheets }) {
           onPress={onChapters}
           icon={<ChaptersIcon active={active === 'home'} />}
         />
-        <Tab
-          label="Sheets"
-          active={active === 'cheatsheets'}
-          onPress={onCheatSheets}
-          icon={<SheetsIcon active={active === 'cheatsheets'} />}
-        />
+        {showSheets ? (
+          <Tab
+            label="Sheets"
+            active={active === 'cheatsheets'}
+            onPress={onCheatSheets}
+            icon={<SheetsIcon active={active === 'cheatsheets'} />}
+          />
+        ) : null}
       </View>
     </View>
   );

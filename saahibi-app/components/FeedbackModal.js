@@ -13,6 +13,7 @@ import {
 import { PostHogMaskView } from 'posthog-react-native';
 
 import { COLORS, RADII, SPACING, TYPE } from '../theme';
+import { useEdgeBackPanResponder } from '../utils/edgeBackSwipe';
 
 export default function FeedbackModal({ visible, onClose, onSubmit }) {
   const [message, setMessage] = useState('');
@@ -26,6 +27,8 @@ export default function FeedbackModal({ visible, onClose, onSubmit }) {
     setMessage('');
     onClose();
   };
+
+  const edgeBackHandlers = useEdgeBackPanResponder(handleClose);
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -56,6 +59,7 @@ export default function FeedbackModal({ visible, onClose, onSubmit }) {
       <KeyboardAvoidingView
         style={styles.overlay}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        {...(edgeBackHandlers ?? {})}
       >
         <Pressable style={styles.backdrop} onPress={handleClose} />
         <View style={styles.sheet}>

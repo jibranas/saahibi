@@ -18,8 +18,6 @@ function buildFathaHamzaIndefExamples(records) {
       Number(record.Person) === 0 &&
       Number(record.Gender) === 2 &&
       Number(record.SegmentNo) === 1 &&
-      record.NominalCase &&
-      record.NominalState === 'INDEF' &&
       FATHA_HAMZA_BW_RE.test(String(record.TextBw || ''))
     ) {
       const lemma = record.LemmaBw;

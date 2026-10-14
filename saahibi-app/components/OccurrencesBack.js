@@ -12,6 +12,8 @@ import { COLORS, FONTS, RADII } from '../theme';
 import { forArabicDisplay } from '../utils/arabicDisplay';
 import { playAyahAudio, stopAyahAudio } from '../utils/ayahAudio';
 import { formatAyahReference } from '../utils/surahNames';
+import ArabicWord from './ArabicWord';
+import GrammarChips from './GrammarChips';
 
 function occurrenceKey(occurrence) {
   return `${occurrence.surahId}:${occurrence.ayahNo}:${occurrence.startWordNo}`;
@@ -35,20 +37,126 @@ function PlayButton({ playing, onPress }) {
   );
 }
 
-/** The full verse, with the words that form the example highlighted. */
-function AyahText({ words }) {
+/** Word-by-word English, with the example's words highlighted. */
+function AyahTranslation({ words }) {
+  const parts = (words ?? []).filter((word) => word.translation);
+  if (parts.length === 0) return null;
+
   return (
-    <Text style={styles.ayah}>
-      {words.map((word, i) => (
-        <Text
-          key={`${word.wordNo}-${i}`}
-          style={word.matched ? styles.ayahWordMatched : styles.ayahWord}
-        >
+    <Text style={styles.translation}>
+      {parts.map((word, i) => (
+        <Text key={`${word.wordNo}-${i}`}>
           {i > 0 ? ' ' : ''}
-          {forArabicDisplay(word.text)}
+          <Text
+            style={
+              word.matched ? styles.translationMatched : styles.translationWord
+            }
+          >
+            {word.translation}
+          </Text>
         </Text>
       ))}
     </Text>
+  );
+}
+
+/** The full verse, with the example's words highlighted. */
+function AyahText({ words }) {
+  return (
+    <View style={styles.ayah}>
+      {words.map((word) =>
+        word.matched ? (
+          <View key={`${word.wordNo}`} style={styles.ayahWordHit}>
+            <Text style={[styles.ayahWord, styles.ayahWordHitText]}>
+              {forArabicDisplay(word.text)}
+            </Text>
+          </View>
+        ) : (
+          <Text key={`${word.wordNo}`} style={styles.ayahWord}>
+            {forArabicDisplay(word.text)}
+          </Text>
+        )
+      )}
+    </View>
+  );
+}
+
+/**
+ * Compact reminder of which example this Quran list belongs to — a small
+ * reference above the scrolling verses, so the ayat stay the focus.
+ */
+function ExampleIdentity({ words, translation, chapterKey }) {
+  const list = words ?? [];
+  if (list.length === 0 && !translation) return null;
+
+  const isSingleWord = list.length === 1;
+  const arabicSize = isSingleWord ? 22 : 18;
+
+  return (
+    <View style={styles.identity}>
+      <View style={styles.identityHead}>
+        {list.length > 0 ? (
+          <View style={styles.identityWordPlate}>
+            <Text style={styles.identityPhrase} numberOfLines={1}>
+              {list.map((word, i) => (
+                <Text key={`${word.wordNo ?? word.text}-${i}`}>
+                  {i > 0 ? ' ' : ''}
+                  <ArabicWord
+                    text={word.text}
+                    root={word.grammar?.root}
+                    partOfSpeech={word.grammar?.partOfSpeech}
+                    fontSize={arabicSize}
+                    color={COLORS.textPrimary}
+                    style={styles.identityArabic}
+                  />
+                </Text>
+              ))}
+            </Text>
+          </View>
+        ) : null}
+
+        {translation ? (
+          <Text style={styles.identityTranslation} numberOfLines={1}>
+            “{translation}”
+          </Text>
+        ) : null}
+      </View>
+
+      {isSingleWord ? (
+        <GrammarChips
+          grammar={list[0].grammar}
+          chapterKey={chapterKey}
+          showHeading={false}
+          onDark
+          compact
+        />
+      ) : list.length > 1 ? (
+        <View style={styles.identityWords}>
+          {list.map((word, i) => (
+            <View
+              key={`${word.wordNo ?? word.text}-${i}`}
+              style={styles.identityWordRow}
+            >
+              <ArabicWord
+                text={word.text}
+                root={word.grammar?.root}
+                partOfSpeech={word.grammar?.partOfSpeech}
+                fontSize={16}
+                color={COLORS.onPrimary}
+                style={styles.identityArabicSmall}
+              />
+              <GrammarChips
+                grammar={word.grammar}
+                chapterKey={chapterKey}
+                showHeading={false}
+                onDark
+                compact
+              />
+            </View>
+          ))}
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -63,22 +171,21 @@ function OccurrenceRow({ occurrence, playing, onTogglePlay }) {
       </View>
 
       <AyahText words={occurrence.words ?? []} />
-
-      {occurrence.translation ? (
-        <Text style={styles.translation}>{occurrence.translation}</Text>
-      ) : null}
+      <AyahTranslation words={occurrence.words ?? []} />
     </View>
   );
 }
 
 /**
- * The card's second back face: every ayah in the Quran containing the example
- * phrase, with the phrase highlighted in context and playable recitation.
- *
- * Occurrences are paged (`onLoadMore` fetches the next page), because a common
- * word can appear hundreds of times.
+ * The card's second back face: the example identity (phrase, translation,
+ * grammar) pinned at the top, then every ayah containing the phrase with
+ * recitation. Occurrences are paged (`onLoadMore` fetches the next page),
+ * because a common word can appear hundreds of times.
  */
 export default function OccurrencesBack({
+  words,
+  translation,
+  chapterKey,
   occurrences,
   total,
   loading,
@@ -130,6 +237,12 @@ export default function OccurrencesBack({
           <Text style={styles.backButtonText}>Done ↺</Text>
         </Pressable>
       </View>
+
+      <ExampleIdentity
+        words={words}
+        translation={translation}
+        chapterKey={chapterKey}
+      />
 
       {loading ? (
         <View style={styles.centered}>
@@ -228,6 +341,52 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.5,
   },
+  identity: {
+    marginBottom: 8,
+    paddingBottom: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.2)',
+  },
+  identityHead: {
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  identityWordPlate: {
+    backgroundColor: COLORS.paper,
+    borderRadius: RADII.md,
+    paddingHorizontal: 14,
+    paddingVertical: 2,
+    marginBottom: 4,
+  },
+  identityPhrase: {
+    fontFamily: FONTS.arabic,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  identityArabic: {
+    lineHeight: 30,
+  },
+  identityArabicSmall: {
+    lineHeight: 24,
+  },
+  identityTranslation: {
+    color: COLORS.onPrimary,
+    opacity: 0.75,
+    fontSize: 12,
+    fontStyle: 'italic',
+    lineHeight: 16,
+    textAlign: 'center',
+  },
+  identityWords: {
+    gap: 4,
+  },
+  identityWordRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
   count: {
     color: COLORS.onPrimary,
     opacity: 0.75,
@@ -289,30 +448,39 @@ const styles = StyleSheet.create({
     lineHeight: 13,
   },
   ayah: {
-    fontFamily: FONTS.arabic,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-    fontSize: 22,
-    lineHeight: 46,
+    flexDirection: 'row-reverse',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    columnGap: 6,
+    rowGap: 2,
   },
   ayahWord: {
+    fontFamily: FONTS.arabic,
+    fontSize: 22,
+    lineHeight: 40,
     color: COLORS.onPrimary,
   },
-  ayahWordMatched: {
-    // Avoid backgroundColor on Text — on iOS it breaks Arabic mark attachment
-    // and draws dotted-circle placeholders under tashkeel. Gold text + underline
-    // marks the hit without disturbing shaping.
-    color: COLORS.accentSoft,
-    textDecorationLine: 'underline',
-    textDecorationColor: COLORS.accent,
+  ayahWordHit: {
+    backgroundColor: COLORS.accent,
+    borderRadius: 4,
+    paddingHorizontal: 3,
+  },
+  ayahWordHitText: {
+    color: COLORS.surfaceDeep,
   },
   translation: {
-    color: COLORS.onPrimary,
-    opacity: 0.8,
     fontSize: 13,
     fontStyle: 'italic',
     lineHeight: 19,
     marginTop: 10,
+  },
+  translationWord: {
+    color: COLORS.onPrimary,
+    opacity: 0.8,
+  },
+  translationMatched: {
+    backgroundColor: COLORS.accent,
+    color: COLORS.surfaceDeep,
   },
   centered: {
     flex: 1,
